@@ -1,0 +1,15 @@
+{
+  "name": "clay-cljs-renderer",
+  "version": "0.1.0",
+  "description": "Clay UI ClojureScript renderer with Missionary flows",
+  "private": true,
+  "scripts": {
+    "watch": "shadow-cljs watch clay-renderer",
+    "compile": "shadow-cljs compile clay-renderer",
+    "release": "shadow-cljs release clay-renderer",
+    "server": "shadow-cljs server"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.27.5"
+  }
+}

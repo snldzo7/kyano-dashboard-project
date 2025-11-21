@@ -1,0 +1,13 @@
+{:deps {:aliases [:dev]}
+
+ :dev-http {8080 "visual-test"}
+
+ :builds
+ {:canvas2d-renderer
+  {:target :browser
+   :output-dir "visual-test/js"
+   :asset-path "/js"
+   :modules {:main {:init-fn clay.examples.canvas2d/init!}}
+   :devtools {:after-load clay.examples.canvas2d/reload!
+              :http-root "visual-test"
+              :http-port 8080}}}}

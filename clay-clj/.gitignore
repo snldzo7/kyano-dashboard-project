@@ -1,0 +1,24 @@
+# Clojure
+.cpcache/
+.nrepl-port
+.rebel_readline_history
+target/
+.lsp/
+.clj-kondo/.cache/
+
+# Generated files
+visual-test/render-commands.json
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.calva/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if using ClojureScript)
+node_modules/
+package-lock.json

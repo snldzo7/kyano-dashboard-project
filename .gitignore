@@ -1,0 +1,90 @@
+# Clojure
+.cpcache/
+.nrepl-port
+.rebel_readline_history
+target/
+.lsp/
+.clj-kondo/.cache/
+pom.xml
+pom.xml.asc
+*.jar
+*.class
+
+# Generated files
+visual-test/render-commands.json
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.calva/
+.portal/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Node/JavaScript (for React and ClojureScript)
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+dist/
+build/
+.vite/
+
+# Shadow-CLJS
+.shadow-cljs/
+
+# Fonts - large binary files that shouldn't be in version control
+*.ttf
+*.ttc
+*.otf
+*.woff
+*.woff2
+*.eot
+**/resources/fonts/
+**/fonts/
+
+# Images and Media - large binary files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+*.mp4
+*.mov
+*.avi
+
+# Binaries and compiled files
+*.wasm
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# clay-original - separate git repository
+clay-original/
+
+# ClojureScript compiled output
+**/cljs-runtime/
+**/visual-test/js/main.js
+**/visual-test/js/manifest.edn
+clay-clj/visual-test/
+
+# Keep only specific important PNGs if needed
+!clay-clj/docs/**/*.png
+!README-assets/**/*.png
+clay-clj/visual-test/js/cljs-runtime
