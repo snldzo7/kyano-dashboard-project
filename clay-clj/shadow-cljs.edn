@@ -1,6 +1,7 @@
 {:deps {:aliases [:dev]}
 
- :dev-http {8080 "visual-test"}
+ :dev-http {8080 "visual-test"
+            8081 "mouse-tracker"}
 
  :builds
  {:canvas2d-renderer
@@ -10,4 +11,13 @@
    :modules {:main {:init-fn clay.examples.canvas2d/init!}}
    :devtools {:after-load clay.examples.canvas2d/reload!
               :http-root "visual-test"
-              :http-port 8080}}}}
+              :http-port 8080}}
+
+  :mouse-tracker
+  {:target :browser
+   :output-dir "mouse-tracker/js"
+   :asset-path "/js"
+   :modules {:main {:init-fn clay.client.mouse-tracker/init!}}
+   :devtools {:after-load clay.client.mouse-tracker/reload!
+              :http-root "mouse-tracker"
+              :http-port 8081}}}}
