@@ -44,7 +44,7 @@
     (m/validate schema/Padding value) ::padding
     (m/validate schema/Sizing value) ::sizing
     (m/validate schema/SizingAxis value) ::sizing-axis
-    (m/validate schema/Vector2 value) ::vector2
+    (m/validate schema/Position2D value) ::position-2d
     (m/validate schema/CornerRadius value) ::corner-radius
     (m/validate schema/ChildAlignment value) ::child-alignment
 
@@ -418,7 +418,7 @@
      :offset (:offset value [0 0])
      :z (:z value nil)}))
 
-(defmethod normalize [::floating-prop ::vector2]
+(defmethod normalize [::floating-prop ::position-2d]
   [_ value]
   value) ; Already normalized
 
