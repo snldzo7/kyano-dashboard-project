@@ -1,0 +1,16 @@
+#!/usr/bin/env bb
+
+;; Launchpad startup script for kyano-dashboard-project
+;;
+;; Usage:
+;;   bin/launchpad                    - Start with default configuration
+;;   bin/launchpad --cider-nrepl      - Start with VS Code/Calva support
+;;   bin/launchpad --portal           - Start with Portal data inspector
+;;   bin/launchpad --help             - Show all available options
+;;
+;; Customize your personal setup by copying deps.local.edn.template
+;; to deps.local.edn (which is gitignored)
+
+(require '[lambdaisland.launchpad :as launchpad])
+
+(launchpad/main {})

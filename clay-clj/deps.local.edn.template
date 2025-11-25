@@ -1,0 +1,144 @@
+;; deps.local.edn.template
+;;
+;; Personal Launchpad Configuration Template
+;;
+;; Copy this file to deps.local.edn (which is gitignored) and customize
+;; for your personal development preferences.
+;;
+;; Usage:
+;;   cp deps.local.edn.template deps.local.edn
+;;   # Edit deps.local.edn with your preferences
+;;   bin/launchpad
+;;
+;; The deps.local.edn file will be merged with deps.edn, allowing you to:
+;; - Override dependencies for local development
+;; - Set default aliases to load
+;; - Configure editor-specific settings
+;; - Set default Launchpad options
+
+{;; ============================================================================
+ ;; Personal Dependency Overrides
+ ;; ============================================================================
+ ;; Add or override dependencies for local development
+ ;; Example: Use a local checkout of a library
+ :deps {}
+
+ ;; Uncomment to add Portal for interactive data inspection:
+ ;; :deps {djblue/portal {:mvn/version "0.59.1"}}
+
+ ;; Uncomment to add FlowStorm for debugging:
+ ;; :deps {com.github.jpmonettas/flow-storm-dbg {:mvn/version "3.18.3"}}
+
+
+ ;; ============================================================================
+ ;; Personal Aliases
+ ;; ============================================================================
+ ;; Define additional aliases for your workflow
+ :aliases {}
+
+ ;; Example: Add a local library alias
+ ;; :aliases {:local-lib {:extra-deps {my.company/lib {:local/root "../lib"}}}}
+
+
+ ;; ============================================================================
+ ;; Default Aliases to Load
+ ;; ============================================================================
+ ;; Specify which aliases from deps.edn should be loaded by default
+ ;; Available aliases: :dev, :test, :nrepl, :build
+ ;;
+ ;; Uncomment to always load the :dev alias:
+ ;; :launchpad/aliases [:dev]
+
+ ;; For full-stack development (REPL + tests):
+ ;; :launchpad/aliases [:dev :test]
+
+
+ ;; ============================================================================
+ ;; Editor Integration
+ ;; ============================================================================
+ ;; Configure editor-specific options
+ ;;
+ ;; For VS Code / Calva (recommended for this project):
+ ;; :launchpad/main-opts ["--cider-nrepl"]
+
+ ;; For Emacs / CIDER:
+ ;; :launchpad/main-opts ["--emacs"]
+
+ ;; Multiple options:
+ ;; :launchpad/main-opts ["--cider-nrepl" "--portal"]
+
+
+ ;; ============================================================================
+ ;; Shadow-CLJS Build Configuration
+ ;; ============================================================================
+ ;; Control which Shadow-CLJS builds start automatically
+ ;; Available build: :mouse-tracker
+ ;;
+ ;; NOTE: Shadow-CLJS integration with Launchpad requires additional setup.
+ ;; For now, use npm scripts to manage Shadow-CLJS:
+ ;;   npm run watch        - Watch mouse-tracker build
+ ;;   npm run compile      - Compile once
+ ;;   npm run release      - Production build
+
+ ;; Auto-start Shadow-CLJS watch for mouse-tracker:
+ ;; :launchpad/shadow-build-ids [:mouse-tracker]
+
+ ;; Auto-connect nREPL to mouse-tracker build (for CLJS REPL):
+ ;; :launchpad/shadow-connect-ids [:mouse-tracker]
+
+
+ ;; ============================================================================
+ ;; Tool Options
+ ;; ============================================================================
+ ;; Configure Launchpad tool behavior
+
+ ;; :launchpad/options
+ ;; {;; Custom nREPL port (default: dynamically assigned)
+ ;;  :nrepl-port 7888
+ ;;
+ ;;  ;; Enable Portal on startup
+ ;;  :portal true
+ ;;
+ ;;  ;; Enable verbose logging
+ ;;  :verbose true
+ ;;
+ ;;  ;; Custom JVM options
+ ;;  :jvm-opts ["-Xmx2g" "-XX:+UseG1GC"]}
+
+
+ ;; ============================================================================
+ ;; Example Configurations
+ ;; ============================================================================
+
+ ;; Example 1: Frontend Developer (CLJS only)
+ ;; {
+ ;;  :launchpad/aliases [:dev]
+ ;;  :launchpad/main-opts ["--cider-nrepl"]
+ ;;  :launchpad/shadow-build-ids [:mouse-tracker]
+ ;;  :launchpad/shadow-connect-ids [:mouse-tracker]
+ ;; }
+
+ ;; Example 2: Full-Stack Developer (recommended)
+ ;; {
+ ;;  :deps {djblue/portal {:mvn/version "0.59.1"}}
+ ;;  :launchpad/aliases [:dev :test]
+ ;;  :launchpad/main-opts ["--cider-nrepl" "--portal"]
+ ;;  :launchpad/shadow-build-ids [:mouse-tracker]
+ ;;  :launchpad/options {:nrepl-port 7888}
+ ;; }
+
+ ;; Example 3: Backend Developer (CLJ only)
+ ;; {
+ ;;  :launchpad/aliases [:dev :test]
+ ;;  :launchpad/main-opts ["--cider-nrepl"]
+ ;;  :launchpad/options {:nrepl-port 7888}
+ ;;  ;; Don't auto-start Shadow builds
+ ;; }
+
+ ;; Example 4: Minimal Setup (manual control)
+ ;; {
+ ;;  :launchpad/aliases [:dev]
+ ;;  :launchpad/main-opts ["--cider-nrepl"]
+ ;;  ;; Don't auto-start Shadow builds (start manually with npm run watch)
+ ;; }
+}
