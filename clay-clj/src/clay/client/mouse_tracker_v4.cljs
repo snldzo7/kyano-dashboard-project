@@ -9,8 +9,7 @@
 
    Key difference from v3: Uses send-fn with callback to receive
    server response containing clock gap."
-  (:require [missionary.core :as m]
-            [taoensso.sente :as sente]
+  (:require [taoensso.sente :as sente]
             [garden.core :refer [css]]
             [applied-science.js-interop :as j]
             [replicant.dom :as r]))
@@ -204,13 +203,14 @@
     (reset! !router (sente/start-client-chsk-router! ch-recv handle-sente-event!))))
 
 ;; =============================================================================
-;; Missionary Mouse Tracking Flow
+;; Mouse Tracking with Simple Throttle
 ;; =============================================================================
 
 (defonce mouse-flow (atom nil))
+(defonce last-send-time (atom 0))
 
 (defn start-mouse-tracking!
-  "Start mouse tracking with Missionary flows"
+  "Start mouse tracking with simple throttle (no Missionary for network)"
   []
   ;; Clean up existing flow
   (when @mouse-flow
@@ -220,41 +220,28 @@
 
   (println "Starting mouse tracking...")
 
-  (let [;; DOM event handler - updates state immediately for responsive UI
+  (let [;; DOM event handler - updates UI immediately AND sends throttled
         handler (fn [e]
-                  (swap! !app-state assoc :coords
-                         {:x (j/get e :clientX)
-                          :y (j/get e :clientY)})
-                  (render-ui!))
-
-        ;; Missionary flow - throttles network sends to every 50ms
-        net-task (m/reduce
-                  (fn [_ _]
-                    (send-coords! (:coords @!app-state)))
-                  nil
-                  (m/sample
-                   ;; Timer that ticks every 50ms
-                   (m/ap (loop []
-                           (m/? (m/sleep 50))
-                           (recur)))
-                   ;; Watch state changes
-                   (m/watch !app-state)))]
+                  (let [x (j/get e :clientX)
+                        y (j/get e :clientY)
+                        now (.now js/Date)]
+                    ;; Always update UI immediately
+                    (swap! !app-state assoc :coords {:x x :y y})
+                    (render-ui!)
+                    ;; Throttle network sends to every 50ms
+                    (when (> (- now @last-send-time) 50)
+                      (reset! last-send-time now)
+                      (send-coords! {:x x :y y}))))]
 
     ;; Attach DOM listener
     (j/call js/document :addEventListener "mousemove" handler)
     (println "Mouse listener attached")
 
-    ;; Start the network task
-    (let [cancel (net-task
-                  (fn [_] (println "Network task completed"))
-                  (fn [err] (println "Network task error:" err)))]
-
-      ;; Store cleanup function
-      (reset! mouse-flow
-              (fn []
-                (println "Cleaning up mouse tracking...")
-                (j/call js/document :removeEventListener "mousemove" handler)
-                (cancel))))))
+    ;; Store cleanup function
+    (reset! mouse-flow
+            (fn []
+              (println "Cleaning up mouse tracking...")
+              (j/call js/document :removeEventListener "mousemove" handler)))))
 
 (defn stop-mouse-tracking!
   "Stop mouse tracking"
