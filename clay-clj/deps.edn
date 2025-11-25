@@ -16,7 +16,10 @@
         ;; Modern ClojureScript libraries for v2
         garden/garden {:mvn/version "1.3.10"}
         applied-science/js-interop {:mvn/version "0.4.2"}
-        no.cjohansen/replicant {:mvn/version "2025.06.21"}}
+        no.cjohansen/replicant {:mvn/version "2025.06.21"}
+        ;; Sente for v3 WebSocket communication
+        com.taoensso/sente {:mvn/version "1.21.0"}
+        org.clojure/core.async {:mvn/version "1.7.701"}}
 
  :aliases
  {:dev

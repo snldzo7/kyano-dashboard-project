@@ -4,7 +4,8 @@
 
  ;; Development HTTP servers for live reload during development
  :dev-http {8081 "resources/public"
-            8082 "resources/public/v2"}
+            8082 "resources/public/v2"
+            8083 "resources/public/v3"}
 
  ;; Build configurations
  :builds
@@ -30,6 +31,19 @@
    :devtools {:after-load clay.client.mouse-tracker-v2/reload!
               :http-root "resources/public/v2"
               :http-port 8082
+              :preloads []}
+   :compiler-options {:infer-externs :auto}
+   :build-options {:manifest-name "manifest.edn"}}
+
+  ;; Mouse Tracker v3 - Sente WebSocket communication
+  :mouse-tracker-v3
+  {:target :browser
+   :output-dir "resources/public/v3/js"
+   :asset-path "/js"
+   :modules {:main {:init-fn clay.client.mouse-tracker-v3/init!}}
+   :devtools {:after-load clay.client.mouse-tracker-v3/reload!
+              :http-root "resources/public/v3"
+              :http-port 8083
               :preloads []}
    :compiler-options {:infer-externs :auto}
    :build-options {:manifest-name "manifest.edn"}}}

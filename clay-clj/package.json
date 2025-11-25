@@ -13,8 +13,11 @@
     "release": "shadow-cljs release mouse-tracker",
     "release:mouse": "shadow-cljs release mouse-tracker",
     "release:v2": "shadow-cljs release mouse-tracker-v2",
+    "watch:v3": "shadow-cljs watch mouse-tracker-v3",
+    "compile:v3": "shadow-cljs compile mouse-tracker-v3",
+    "release:v3": "shadow-cljs release mouse-tracker-v3",
     "server": "shadow-cljs server",
-    "clean": "rm -rf resources/public/js resources/public/v2/js .shadow-cljs"
+    "clean": "rm -rf resources/public/js resources/public/v2/js resources/public/v3/js .shadow-cljs"
   },
   "devDependencies": {
     "shadow-cljs": "^2.27.5"
