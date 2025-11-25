@@ -1,0 +1,15 @@
+#!/usr/bin/env bb
+
+;; Launchpad startup script for Rheon Core
+;;
+;; Usage:
+;;   bin/launchpad                    - Start REPL with dev alias
+;;   bin/launchpad --help             - Show all available options
+;;
+;; Run tests:
+;;   clojure -M:test                  - Run all tests with Kaocha
+;;   clojure -M:test --watch          - Run tests in watch mode
+
+(require '[lambdaisland.launchpad :as launchpad])
+
+(launchpad/main {:aliases [:dev]})

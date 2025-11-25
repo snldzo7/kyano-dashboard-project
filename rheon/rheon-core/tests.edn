@@ -1,0 +1,14 @@
+#kaocha/v1
+{:tests [{:id :unit
+          :test-paths ["test"]
+          :source-paths ["src"]}]
+
+ :color? true
+ :randomize? true
+
+ ;; Watch mode configuration
+ :watch? false  ;; Use --watch flag to enable
+
+ ;; Plugins
+ :plugins [:kaocha.plugin/randomize
+           :kaocha.plugin/filter]}

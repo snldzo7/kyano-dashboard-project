@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# Run Kaocha test runner
+# Usage:
+#   bin/kaocha              - Run all tests
+#   bin/kaocha --watch      - Run tests in watch mode
+#   bin/kaocha --fail-fast  - Stop on first failure
+#   bin/kaocha --focus rheon.core-test  - Run specific namespace
+
+clojure -M:test "$@"
