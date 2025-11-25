@@ -1,15 +1,23 @@
 {
-  "name": "clay-cljs-renderer",
+  "name": "clay-cljs",
   "version": "0.1.0",
-  "description": "Clay UI ClojureScript renderer with Missionary flows",
+  "description": "Clay UI ClojureScript with Missionary flows and real-time mouse tracking",
   "private": true,
   "scripts": {
-    "watch": "shadow-cljs watch clay-renderer",
-    "compile": "shadow-cljs compile clay-renderer",
-    "release": "shadow-cljs release clay-renderer",
-    "server": "shadow-cljs server"
+    "watch": "shadow-cljs watch mouse-tracker",
+    "watch:mouse": "shadow-cljs watch mouse-tracker",
+    "watch:v2": "shadow-cljs watch mouse-tracker-v2",
+    "compile": "shadow-cljs compile mouse-tracker",
+    "compile:mouse": "shadow-cljs compile mouse-tracker",
+    "compile:v2": "shadow-cljs compile mouse-tracker-v2",
+    "release": "shadow-cljs release mouse-tracker",
+    "release:mouse": "shadow-cljs release mouse-tracker",
+    "release:v2": "shadow-cljs release mouse-tracker-v2",
+    "server": "shadow-cljs server",
+    "clean": "rm -rf resources/public/js resources/public/v2/js .shadow-cljs"
   },
   "devDependencies": {
     "shadow-cljs": "^2.27.5"
   }
 }
+

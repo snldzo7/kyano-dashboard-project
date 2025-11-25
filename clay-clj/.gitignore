@@ -6,8 +6,15 @@ target/
 .lsp/
 .clj-kondo/.cache/
 
-# Generated files
+# Shadow-CLJS compiled output
+.shadow-cljs/
+resources/public/*/js/
+resources/public/*/manifest.edn
+
+# Legacy build output (can be removed after migration)
+visual-test/js/
 visual-test/render-commands.json
+mouse-tracker/js/
 
 # IDE
 .idea/
@@ -22,3 +29,7 @@ Thumbs.db
 # Node (if using ClojureScript)
 node_modules/
 package-lock.json
+
+# Launchpad personal configuration
+deps.local.edn
+.env.local

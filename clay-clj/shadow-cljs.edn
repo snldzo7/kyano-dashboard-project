@@ -1,23 +1,39 @@
-{:deps {:aliases [:dev]}
+{;; Use deps.edn for dependency management (Clojure/ClojureScript deps)
+ ;; Source paths are configured in deps.edn :paths (not here)
+ :deps {:aliases [:dev]}
 
- :dev-http {8080 "visual-test"
-            8081 "mouse-tracker"}
+ ;; Development HTTP servers for live reload during development
+ :dev-http {8081 "resources/public"
+            8082 "resources/public/v2"}
 
+ ;; Build configurations
  :builds
- {:canvas2d-renderer
-  {:target :browser
-   :output-dir "visual-test/js"
-   :asset-path "/js"
-   :modules {:main {:init-fn clay.examples.canvas2d/init!}}
-   :devtools {:after-load clay.examples.canvas2d/reload!
-              :http-root "visual-test"
-              :http-port 8080}}
-
+ {;; Mouse Tracker - Real-time mouse coordinate tracker with WebSocket
   :mouse-tracker
   {:target :browser
-   :output-dir "mouse-tracker/js"
+   :output-dir "resources/public/js"
    :asset-path "/js"
    :modules {:main {:init-fn clay.client.mouse-tracker/init!}}
    :devtools {:after-load clay.client.mouse-tracker/reload!
-              :http-root "mouse-tracker"
-              :http-port 8081}}}}
+              :http-root "resources/public"
+              :http-port 8081
+              :preloads []}
+   :compiler-options {:infer-externs :auto}
+   :build-options {:manifest-name "manifest.edn"}}
+
+  ;; Mouse Tracker v2 - Modern ClojureScript with Garden, js-interop, Replicant
+  :mouse-tracker-v2
+  {:target :browser
+   :output-dir "resources/public/v2/js"
+   :asset-path "/js"
+   :modules {:main {:init-fn clay.client.mouse-tracker-v2/init!}}
+   :devtools {:after-load clay.client.mouse-tracker-v2/reload!
+              :http-root "resources/public/v2"
+              :http-port 8082
+              :preloads []}
+   :compiler-options {:infer-externs :auto}
+   :build-options {:manifest-name "manifest.edn"}}}
+
+ ;; NOTE: The canvas2d test is available as a standalone HTML tool at:
+ ;; resources/public/canvas2d-test.html (vanilla JS, not ClojureScript)
+ }
