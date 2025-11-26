@@ -78,7 +78,11 @@
      [\"com.taoensso/sente\" \"1.19.2\"]")
 
   (gauge-options [gauge]
-    "Map of supported options with their descriptions"))
+    "Map of supported options with their descriptions")
+
+  (gauge-capabilities [gauge]
+    "Set of capabilities this gauge supports, e.g.
+     #{:bidirectional :broadcast :request-reply :persistent}"))
 
 ;; =============================================================================
 ;; IConnection - Connection Operations

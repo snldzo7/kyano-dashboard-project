@@ -1,0 +1,35 @@
+{:paths ["src"]
+
+ :deps
+ {org.clojure/clojure {:mvn/version "1.11.1"}
+
+  ;; Rheon core (local)
+  io.github.kyano/rheon-core {:local/root "../rheon-core"}
+
+  ;; Sente WebSocket library
+  com.taoensso/sente {:mvn/version "1.19.2"}
+
+  ;; HTTP Kit server adapter
+  http-kit/http-kit {:mvn/version "2.7.0"}
+
+  ;; Ring middleware
+  ring/ring-core {:mvn/version "1.11.0"}}
+
+ :aliases
+ {:dev
+  {:extra-paths ["test" "examples"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                clj-http/clj-http {:mvn/version "3.12.3"}}}
+
+  :examples
+  {:extra-paths ["examples"]}
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                clj-http/clj-http {:mvn/version "3.12.3"}}
+   :main-opts ["-m" "kaocha.runner"]}
+
+  :cljs
+  {:extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}
+                thheller/shadow-cljs {:mvn/version "2.27.1"}}}}}

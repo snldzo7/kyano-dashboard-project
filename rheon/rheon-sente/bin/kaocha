@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# Run Kaocha test runner for rheon-sente
+clojure -M:test "$@"

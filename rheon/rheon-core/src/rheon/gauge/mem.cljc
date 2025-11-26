@@ -203,7 +203,9 @@
   (gauge-description [_] "In-memory gauge for testing - no network dependencies")
   (gauge-requires [_] [])
   (gauge-options [_]
-    {:port "Port number to listen on or connect to"}))
+    {:port "Port number to listen on or connect to"})
+  (gauge-capabilities [_]
+    #{:bidirectional :request-reply :broadcast}))
 
 ;; =============================================================================
 ;; Cleanup Utilities
