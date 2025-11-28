@@ -1,0 +1,16 @@
+;; shadow-cljs configuration for Rheon examples
+{:source-paths ["src" "examples"]
+
+ :dependencies [[com.cognitect/transit-cljs "0.8.280"]
+                [applied-science/js-interop "0.4.2"]
+                [no.cjohansen/replicant "2025.06.21"]
+                [garden "1.3.10"]]
+
+ :builds
+ {:mouse-tracker
+  {:target :browser
+   :output-dir "public/js"
+   :asset-path "/js"
+   :modules {:main {:init-fn mouse-tracker-ui/init!}}
+   :devtools {:http-root "public"
+              :http-port 8085}}}}

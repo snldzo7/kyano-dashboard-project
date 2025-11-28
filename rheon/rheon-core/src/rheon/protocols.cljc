@@ -1,117 +1,162 @@
 (ns rheon.protocols
-  "Rheon protocols - minimal additions to Clojure's standard protocols.
+  "Rheon v2 Protocols - Wire-as-Value Architecture
 
-   We reuse:
-   - clojure.lang.IDeref     - @signal dereferencing
-   - clojure.lang.IWatchable - add-watch/remove-watch on signals
-   - java.io.Closeable       - with-open for connections
-   - clojure.lang.ILookup    - (:wire conn) access
+   Core insight: The network boundary should be invisible to application code.
 
-   We add:
-   - IGauge - Transport abstraction (sente, kafka, mqtt, mem)
-   - IWire  - Wire operations (send!, on-message, etc.)")
+   Three wire types:
+   - Stream   - Continuous flow (emit!/listen)
+   - Discrete - Request/response (send!/reply!)
+   - Signal   - Current value (signal!/watch)")
 
 ;; =============================================================================
-;; IGauge - Transport Abstraction
-;; =============================================================================
-;; Like wire gauge in electrical engineering - determines capacity/characteristics
-
-(defprotocol IGauge
-  "Transport abstraction - pluggable backends for network communication.
-
-   Each gauge implementation handles the actual transport:
-   - :mem   - In-memory (testing)
-   - :sente - WebSocket via Sente
-   - :kafka - Apache Kafka
-   - :mqtt  - MQTT protocol"
-
-  (gauge-connect! [gauge uri opts]
-    "Establish a connection using this gauge.
-     Returns a connection state map that will be stored in the Connection.")
-
-  (gauge-listen! [gauge opts]
-    "Start a server listening for connections.
-     Returns a server state map.")
-
-  (gauge-send! [gauge conn-state wire data opts]
-    "Send data on the specified wire through this gauge.
-     conn-state is the map returned by gauge-connect!
-     wire is a keyword like :mouse
-     data is the payload (will be serialized by gauge)
-     opts may include :on-ack, :on-error, etc.")
-
-  (gauge-request! [gauge conn-state wire data opts]
-    "Send a request and expect a reply.
-     opts must include :on-reply callback and may include :timeout-ms")
-
-  (gauge-subscribe! [gauge conn-state wire handler]
-    "Subscribe to messages on a wire.
-     handler is (fn [data] ...) called for each message.
-     Returns a subscription that can be passed to gauge-unsubscribe!")
-
-  (gauge-on-request! [gauge conn-state wire handler]
-    "Register a request handler for a wire.
-     handler is (fn [data reply!] ...) where reply! sends the response.
-     Returns a subscription that can be passed to gauge-unsubscribe!")
-
-  (gauge-unsubscribe! [gauge subscription]
-    "Remove a subscription created by gauge-subscribe! or gauge-on-request!")
-
-  (gauge-close! [gauge conn-state]
-    "Close a connection and release resources."))
-
-;; =============================================================================
-;; IGaugeInfo - Gauge Metadata (optional)
-;; =============================================================================
-
-(defprotocol IGaugeInfo
-  "Optional protocol for gauge metadata and discovery."
-
-  (gauge-name [gauge]
-    "Return the gauge's keyword identifier, e.g. :sente, :kafka")
-
-  (gauge-description [gauge]
-    "Human-readable description of the gauge")
-
-  (gauge-requires [gauge]
-    "Vector of dependency coordinates this gauge requires, e.g.
-     [\"com.taoensso/sente\" \"1.19.2\"]")
-
-  (gauge-options [gauge]
-    "Map of supported options with their descriptions"))
-
-;; =============================================================================
-;; IConnection - Connection Operations
+;; Connection - Creates typed wires
 ;; =============================================================================
 
 (defprotocol IConnection
-  "Operations on a Rheon connection."
+  "Connection to a transport. Creates wires by name."
 
-  (send! [conn wire data] [conn wire data opts]
-    "Send data on a wire through this connection.")
+  (stream [conn wire-id]
+    "Create or get a Stream wire for continuous flow.
+     Returns a StreamWire.")
 
-  (request! [conn wire data opts]
-    "Send a request and receive a reply via callback.")
+  (discrete [conn wire-id]
+    "Create or get a Discrete wire for request/response.
+     Returns a DiscreteWire.")
 
-  (on-message [conn wire handler]
-    "Subscribe to messages on a wire. Returns subscription.")
-
-  (on-request [conn wire handler]
-    "Handle requests on a wire. handler is (fn [data reply!] ...). Returns subscription.")
-
-  (unsubscribe! [conn subscription]
-    "Remove a subscription.")
-
-  (configure! [conn wire opts]
-    "Configure wire-specific options (mode, buffer, throttle, etc.)"))
+  (signal [conn wire-id initial-value]
+    "Create or get a Signal wire with initial value.
+     Returns a SignalWire."))
 
 ;; =============================================================================
-;; IServer - Server Operations
+;; Stream Operations - Continuous flow
 ;; =============================================================================
 
-(defprotocol IServer
-  "Operations on a Rheon server."
+(defprotocol IEmit
+  "Emit values onto a stream."
 
-  (on-client [server handler]
-    "Register handler for new client connections.
-     handler is (fn [conn] ...) called when a client connects."))
+  (emit! [wire data]
+    "Emit data onto the stream. Fire and forget.
+     Returns nil immediately (async)."))
+
+(defprotocol IListen
+  "Listen to stream emissions."
+
+  (listen [wire handler]
+    "Listen to emissions on this stream.
+     handler: (fn [data] ...) called for each emitted value.
+     Returns a subscription for unsubscribe."))
+
+;; =============================================================================
+;; Discrete Operations - Request/Response
+;; =============================================================================
+
+(defprotocol ISend
+  "Send requests expecting replies."
+
+  (send! [wire data opts]
+    "Send a request and expect a reply.
+     opts: {:timeout-ms n, :on-reply (fn [reply] ...), :on-error (fn [err] ...)}
+     Returns nil."))
+
+(defprotocol IReply
+  "Handle requests and return replies."
+
+  (reply! [wire handler]
+    "Register a handler for incoming requests.
+     handler: (fn [data] reply-value) - return value IS the reply.
+     Returns a subscription for unsubscribe."))
+
+;; =============================================================================
+;; Signal Operations - Current value
+;; =============================================================================
+
+(defprotocol ISignal
+  "Set signal values."
+
+  (signal! [wire value]
+    "Set the current signal value. All watchers notified.
+     Returns nil."))
+
+(defprotocol IWatch
+  "Watch signal values."
+
+  (watch [wire handler]
+    "Watch this signal's value.
+     handler: (fn [value] ...) called immediately with current value,
+              then on each signal! call.
+     Returns a subscription for unsubscribe."))
+
+;; =============================================================================
+;; Lifecycle
+;; =============================================================================
+
+(defprotocol ISubscription
+  "Subscription management."
+
+  (unsubscribe! [subscription]
+    "Cancel the subscription, stop receiving updates."))
+
+(defprotocol ICloseable
+  "Resource cleanup."
+
+  (close! [x]
+    "Close the connection or wire, release resources."))
+
+;; =============================================================================
+;; Flow - Raw Missionary Access
+;; =============================================================================
+
+(defprotocol IFlow
+  "Access raw Missionary flow for advanced composition.
+
+   This gives power users direct access to Missionary's flow abstraction,
+   enabling powerful declarative transformations:
+
+   Example:
+     (require '[missionary.core :as m])
+
+     ;; Get raw flow from a stream
+     (def mouse-flow (->flow mouse))
+
+     ;; Compose with Missionary operators
+     (->> mouse-flow
+          (m/eduction (filter #(> (:x %) 100)))
+          (m/sample 16)
+          (m/reduce (fn [_ v] (render! v)) nil))"
+
+  (->flow [wire]
+    "Get the underlying Missionary flow for this wire.
+
+     For Stream:   emits each value passed to emit!
+     For Signal:   emits current value, then each value on signal!
+     For Discrete: emits each incoming request
+
+     Returns a Missionary continuous/discrete flow depending on wire type."))
+
+;; =============================================================================
+;; Encoder - Wire Format Abstraction (Internal)
+;; =============================================================================
+
+(defprotocol IEncoder
+  "Wire format encoding/decoding.
+
+   This is an internal protocol used by transports. Users don't need to
+   interact with it directly - Transit is used by default.
+
+   If you need a custom encoding format, implement this protocol and pass
+   your encoder via the :encoder option when creating a connection.
+
+   Example:
+     (defrecord MyEncoder []
+       IEncoder
+       (encode [_ msg] (my-encode msg))
+       (decode [_ data] (my-decode data)))
+
+     (connection {:transport :ws-server
+                  :encoder (->MyEncoder)})"
+
+  (encode [encoder msg]
+    "Encode a message (Clojure data) to wire format (string or bytes).")
+
+  (decode [encoder data]
+    "Decode wire format (string or bytes) to a message (Clojure data)."))

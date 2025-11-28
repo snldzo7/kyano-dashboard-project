@@ -1,0 +1,13 @@
+{
+  "name": "rheon-examples",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "watch": "shadow-cljs watch mouse-tracker",
+    "compile": "shadow-cljs compile mouse-tracker",
+    "release": "shadow-cljs release mouse-tracker"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.28.0"
+  }
+}
