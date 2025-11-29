@@ -4,7 +4,8 @@
  {org.clojure/clojure {:mvn/version "1.11.1"}
   http-kit/http-kit {:mvn/version "2.7.0"}
   missionary/missionary {:mvn/version "b.36"}
-  com.cognitect/transit-clj {:mvn/version "1.0.333"}}
+  com.cognitect/transit-clj {:mvn/version "1.0.333"}
+  metosin/malli {:mvn/version "0.16.4"}}
 
  :aliases
  {:dev

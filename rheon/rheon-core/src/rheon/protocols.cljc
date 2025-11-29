@@ -13,18 +13,21 @@
 ;; =============================================================================
 
 (defprotocol IConnection
-  "Connection to a transport. Creates wires by name."
+  "Connection to a transport. Creates wires from refs."
 
-  (stream [conn wire-id]
-    "Create or get a Stream wire for continuous flow.
+  (stream [conn ref]
+    "Create or get a Stream wire from a wire-ref.
+     ref should be a map with at least :wire-id, optionally :spec and other fields.
      Returns a StreamWire.")
 
-  (discrete [conn wire-id]
-    "Create or get a Discrete wire for request/response.
+  (discrete [conn ref]
+    "Create or get a Discrete wire from a wire-ref.
+     ref should be a map with at least :wire-id, optionally :spec and other fields.
      Returns a DiscreteWire.")
 
-  (signal [conn wire-id initial-value]
-    "Create or get a Signal wire with initial value.
+  (signal [conn ref]
+    "Create or get a Signal wire from a wire-ref.
+     ref should be a map with at least :wire-id and :initial, optionally :spec.
      Returns a SignalWire."))
 
 ;; =============================================================================
@@ -132,6 +135,26 @@
      For Discrete: emits each incoming request
 
      Returns a Missionary continuous/discrete flow depending on wire type."))
+
+;; =============================================================================
+;; Wire Reference - Get wire-ref from live wire
+;; =============================================================================
+
+(defprotocol IWire
+  "Get the wire-ref (data) that describes this live wire.
+
+   Wire-refs are pure data. A live wire is an instantiated wire-ref.
+   This protocol lets you extract the original ref from a live wire,
+   enabling serialization and inspection.
+
+   Example:
+     (def mouse (r/wire conn {:wire-id :mouse :type :stream :spec [:map [:x :int] [:y :int]]}))
+     (wire-ref mouse)
+     ;; => {:wire-id :mouse :type :stream :spec [:map [:x :int] [:y :int]]}"
+
+  (wire-ref [wire]
+    "Get the wire-ref that describes this wire.
+     Returns a map with :wire-id, :type, and optional :spec, :initial, :opts, :conn."))
 
 ;; =============================================================================
 ;; Encoder - Wire Format Abstraction (Internal)

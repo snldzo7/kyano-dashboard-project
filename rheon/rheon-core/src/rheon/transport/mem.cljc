@@ -53,13 +53,16 @@
 ;; Wire Records (defined here to keep extend-type in same namespace)
 ;; =============================================================================
 
-(defrecord StreamWire [id hub wire-type listeners seq-counter last-seq-received flow-callbacks])
+(defrecord StreamWire [id hub wire-type ref listeners seq-counter last-seq-received flow-callbacks])
+;; ref: the wire-ref data that created this wire
 ;; flow-callbacks: atom #{emit-fn ...} - functions to call when emitting (for m/observe)
 
-(defrecord DiscreteWire [id hub wire-type handler request-callbacks])
+(defrecord DiscreteWire [id hub wire-type ref handler request-callbacks])
+;; ref: the wire-ref data that created this wire
 ;; request-callbacks: atom #{fn ...} - functions to call on incoming requests (for m/observe)
 
-(defrecord SignalWire [id hub wire-type value watchers])
+(defrecord SignalWire [id hub wire-type ref value watchers])
+;; ref: the wire-ref data that created this wire
 ;; value atom is directly watchable via m/watch
 
 (defrecord Subscription [wire handler type])
@@ -68,14 +71,14 @@
 ;; Wire Constructors
 ;; =============================================================================
 
-(defn make-stream-wire [id hub]
-  (->StreamWire id hub :stream (atom []) (atom 0) (atom 0) (atom #{})))
+(defn make-stream-wire [id hub ref]
+  (->StreamWire id hub :stream ref (atom []) (atom 0) (atom 0) (atom #{})))
 
-(defn make-discrete-wire [id hub]
-  (->DiscreteWire id hub :discrete (atom nil) (atom #{})))
+(defn make-discrete-wire [id hub ref]
+  (->DiscreteWire id hub :discrete ref (atom nil) (atom #{})))
 
-(defn make-signal-wire [id hub initial-value]
-  (->SignalWire id hub :signal (atom initial-value) (atom [])))
+(defn make-signal-wire [id hub ref initial-value]
+  (->SignalWire id hub :signal ref (atom initial-value) (atom [])))
 
 ;; =============================================================================
 ;; MemConnection - In-memory connection
@@ -111,17 +114,21 @@
 
 (extend-type MemConnection
   p/IConnection
-  (stream [conn wire-id]
-    (get-or-create-wire! conn wire-id :stream
-                         #(make-stream-wire wire-id (:hub conn))))
+  (stream [conn ref]
+    (let [wire-id (:wire-id ref)]
+      (get-or-create-wire! conn wire-id :stream
+                           #(make-stream-wire wire-id (:hub conn) ref))))
 
-  (discrete [conn wire-id]
-    (get-or-create-wire! conn wire-id :discrete
-                         #(make-discrete-wire wire-id (:hub conn))))
+  (discrete [conn ref]
+    (let [wire-id (:wire-id ref)]
+      (get-or-create-wire! conn wire-id :discrete
+                           #(make-discrete-wire wire-id (:hub conn) ref))))
 
-  (signal [conn wire-id initial-value]
-    (get-or-create-wire! conn wire-id :signal
-                         #(make-signal-wire wire-id (:hub conn) initial-value)))
+  (signal [conn ref]
+    (let [wire-id (:wire-id ref)
+          initial-value (:initial ref)]
+      (get-or-create-wire! conn wire-id :signal
+                           #(make-signal-wire wire-id (:hub conn) ref initial-value))))
 
   p/ICloseable
   (close! [conn]
@@ -234,6 +241,25 @@
     ;; m/watch is Missionary's built-in atom observation - perfect for signals.
     ;; Emits current value immediately, then on each change.
     (m/watch (:value wire))))
+
+;; =============================================================================
+;; IWire Implementation - Get wire-ref from live wire
+;; =============================================================================
+
+(extend-type StreamWire
+  p/IWire
+  (wire-ref [wire]
+    (:ref wire)))
+
+(extend-type DiscreteWire
+  p/IWire
+  (wire-ref [wire]
+    (:ref wire)))
+
+(extend-type SignalWire
+  p/IWire
+  (wire-ref [wire]
+    (:ref wire)))
 
 ;; =============================================================================
 ;; Subscription Implementation

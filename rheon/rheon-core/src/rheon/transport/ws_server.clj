@@ -39,18 +39,21 @@
 ;; server: http-kit server stop-fn
 ;; encoder: IEncoder implementation for wire format
 
-(defrecord StreamWire [id conn wire-type listeners seq-counter last-seq-received flow-callbacks])
+(defrecord StreamWire [id conn wire-type ref listeners seq-counter last-seq-received flow-callbacks])
+;; ref: the wire-ref data that created this wire
 ;; listeners: atom [handler-fn ...] for broadcast pub/sub
 ;; seq-counter: atom long - sequence number for ordering detection
 ;; last-seq-received: atom long - track incoming sequences for gap detection
 ;; flow-callbacks: atom #{fn ...} - functions to call when emitting (for m/observe)
 
-(defrecord DiscreteWire [id conn wire-type handler pending request-callbacks])
+(defrecord DiscreteWire [id conn wire-type ref handler pending request-callbacks])
+;; ref: the wire-ref data that created this wire
 ;; handler: atom handler-fn
 ;; pending: atom {req-id -> {:on-reply fn :on-error fn}}
 ;; request-callbacks: atom #{fn ...} - functions to call on incoming requests (for m/observe)
 
-(defrecord SignalWire [id conn wire-type value])
+(defrecord SignalWire [id conn wire-type ref value])
+;; ref: the wire-ref data that created this wire
 ;; value: atom current-value (m/watch handles subscriptions automatically)
 
 (defrecord Subscription [wire handler type cancel-fn])
@@ -60,14 +63,14 @@
 ;; Wire Constructors
 ;; =============================================================================
 
-(defn make-stream-wire [id conn]
-  (->StreamWire id conn :stream (atom []) (atom 0) (atom 0) (atom #{})))
+(defn make-stream-wire [id conn ref]
+  (->StreamWire id conn :stream ref (atom []) (atom 0) (atom 0) (atom #{})))
 
-(defn make-discrete-wire [id conn]
-  (->DiscreteWire id conn :discrete (atom nil) (atom {}) (atom #{})))
+(defn make-discrete-wire [id conn ref]
+  (->DiscreteWire id conn :discrete ref (atom nil) (atom {}) (atom #{})))
 
-(defn make-signal-wire [id conn initial-value]
-  (->SignalWire id conn :signal (atom initial-value)))
+(defn make-signal-wire [id conn ref initial-value]
+  (->SignalWire id conn :signal ref (atom initial-value)))
 
 ;; =============================================================================
 ;; Broadcast Helper
@@ -241,17 +244,21 @@
 
 (extend-type WSConnection
   p/IConnection
-  (stream [conn wire-id]
-    (get-or-create-wire! conn wire-id :stream
-                         #(make-stream-wire wire-id conn)))
+  (stream [conn ref]
+    (let [wire-id (:wire-id ref)]
+      (get-or-create-wire! conn wire-id :stream
+                           #(make-stream-wire wire-id conn ref))))
 
-  (discrete [conn wire-id]
-    (get-or-create-wire! conn wire-id :discrete
-                         #(make-discrete-wire wire-id conn)))
+  (discrete [conn ref]
+    (let [wire-id (:wire-id ref)]
+      (get-or-create-wire! conn wire-id :discrete
+                           #(make-discrete-wire wire-id conn ref))))
 
-  (signal [conn wire-id initial-value]
-    (get-or-create-wire! conn wire-id :signal
-                         #(make-signal-wire wire-id conn initial-value)))
+  (signal [conn ref]
+    (let [wire-id (:wire-id ref)
+          initial-value (:initial ref)]
+      (get-or-create-wire! conn wire-id :signal
+                           #(make-signal-wire wire-id conn ref initial-value))))
 
   p/ICloseable
   (close! [conn]
@@ -385,6 +392,25 @@
     ;; m/watch is Missionary's built-in atom observation - perfect for signals.
     ;; Emits current value immediately, then on each change.
     (m/watch (:value wire))))
+
+;; =============================================================================
+;; IWire Implementation - Get wire-ref from live wire
+;; =============================================================================
+
+(extend-type StreamWire
+  p/IWire
+  (wire-ref [wire]
+    (:ref wire)))
+
+(extend-type DiscreteWire
+  p/IWire
+  (wire-ref [wire]
+    (:ref wire)))
+
+(extend-type SignalWire
+  p/IWire
+  (wire-ref [wire]
+    (:ref wire)))
 
 ;; =============================================================================
 ;; Subscription Implementation

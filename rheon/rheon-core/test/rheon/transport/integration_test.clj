@@ -655,3 +655,266 @@
         (finally
           (r/close! client)
           (r/close! server))))))
+
+;; =============================================================================
+;; Spec Validation Integration Tests
+;; =============================================================================
+
+(deftest spec-validated-stream-over-websocket-test
+  (testing "Stream wire with spec - valid data passes over WebSocket"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          ;; Server creates wire with spec
+          mouse-ref {:wire-id :mouse :type :stream :spec [:map [:x :int] [:y :int]]}
+          mouse-server (r/wire server mouse-ref)
+          received (atom [])
+          latch (CountDownLatch. 2)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        (is (deref connected? 3000 false))
+        ;; Client creates wire with same spec
+        (let [mouse-client (r/wire client mouse-ref)]
+          (r/listen mouse-client (fn [data]
+                                   (swap! received conj data)
+                                   (.countDown latch))))
+        (Thread/sleep 100)
+        ;; Server emits valid data
+        (r/emit! mouse-server {:x 100 :y 200})
+        (r/emit! mouse-server {:x 300 :y 400})
+        ;; Wait for messages
+        (is (.await latch 2 TimeUnit/SECONDS) "Should receive 2 valid messages")
+        (is (= 2 (count @received)))
+        (is (= {:x 100 :y 200} (dissoc (first @received) :rheon/seq)))
+        (is (= {:x 300 :y 400} (dissoc (second @received) :rheon/seq)))
+        (finally
+          (r/close! client)
+          (r/close! server)))))
+
+  (testing "Stream wire with spec - invalid data throws before sending"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          mouse-ref {:wire-id :mouse :type :stream :spec [:map [:x :int] [:y :int]]}
+          mouse-server (r/wire server mouse-ref)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        (is (deref connected? 3000 false))
+        ;; Try to emit invalid data from server - should throw before going over wire
+        (is (thrown-with-msg? Exception #"Data validation failed"
+              (r/emit! mouse-server {:x "not-an-int" :y 200})))
+        ;; Try to emit from client with invalid data
+        (let [mouse-client (r/wire client mouse-ref)]
+          (is (thrown-with-msg? Exception #"Data validation failed"
+                (r/emit! mouse-client {:x 100 :y "bad"}))))
+        (finally
+          (r/close! client)
+          (r/close! server))))))
+
+(deftest spec-validated-discrete-over-websocket-test
+  (testing "Discrete wire with spec - valid request/reply over WebSocket"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          ;; Discrete wire with request and reply specs
+          clock-ref {:wire-id :clock
+                     :type :discrete
+                     :spec {:request [:map [:action :keyword]]
+                            :reply [:map [:time :int] [:zone :string]]}}
+          clock-server (r/wire server clock-ref)
+          reply-received (promise)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        ;; Server handler returns valid reply
+        (r/reply! clock-server (fn [_data]
+                                 {:time (System/currentTimeMillis)
+                                  :zone "UTC"}))
+        (is (deref connected? 3000 false))
+        ;; Client sends valid request
+        (let [clock-client (r/wire client clock-ref)]
+          (Thread/sleep 100)
+          (r/send! clock-client {:action :get-time}
+                   {:on-reply #(deliver reply-received %)
+                    :timeout-ms 5000}))
+        ;; Wait for reply
+        (let [reply (deref reply-received 3000 nil)]
+          (is (some? reply) "Should receive valid reply")
+          (is (number? (:time reply)))
+          (is (= "UTC" (:zone reply))))
+        (finally
+          (r/close! client)
+          (r/close! server)))))
+
+  (testing "Discrete wire with spec - invalid request throws"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          clock-ref {:wire-id :clock
+                     :type :discrete
+                     :spec {:request [:map [:action :keyword]]
+                            :reply [:map [:time :int]]}}
+          clock-server (r/wire server clock-ref)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        (r/reply! clock-server (fn [_] {:time 12345}))
+        (is (deref connected? 3000 false))
+        ;; Try to send invalid request - should throw before going over wire
+        (let [clock-client (r/wire client clock-ref)]
+          (is (thrown-with-msg? Exception #"Data validation failed"
+                (r/send! clock-client {:action "not-a-keyword"}
+                         {:timeout-ms 5000}))))
+        (finally
+          (r/close! client)
+          (r/close! server))))))
+
+(deftest spec-validated-signal-over-websocket-test
+  (testing "Signal wire with spec - valid values over WebSocket"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          ;; Signal wire with spec
+          status-ref {:wire-id :status
+                      :type :signal
+                      :spec :keyword
+                      :initial :initializing}
+          status-server (r/wire server status-ref)
+          received (atom [])
+          running-received? (promise)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        (is (deref connected? 3000 false))
+        ;; Client watches signal
+        (let [status-client (r/wire client status-ref)]
+          (r/watch status-client (fn [v]
+                                   (when v
+                                     (swap! received conj v)
+                                     (when (= v :running)
+                                       (deliver running-received? true))))))
+        (Thread/sleep 300)
+        ;; Server updates with valid value
+        (r/signal! status-server :running)
+        ;; Wait for the :running value specifically
+        (is (deref running-received? 3000 false) "Should receive :running signal")
+        ;; Verify we got it
+        (is (some #{:running} @received) "Should have :running in received values")
+        (finally
+          (r/close! client)
+          (r/close! server)))))
+
+  (testing "Signal wire with spec - invalid value throws"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          status-ref {:wire-id :status
+                      :type :signal
+                      :spec :keyword
+                      :initial :ready}
+          status-server (r/wire server status-ref)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        (is (deref connected? 3000 false))
+        ;; Try to signal invalid value - should throw
+        (is (thrown-with-msg? Exception #"Data validation failed"
+              (r/signal! status-server "not-a-keyword")))
+        (finally
+          (r/close! client)
+          (r/close! server))))))
+
+(deftest spec-validated-bidirectional-over-websocket-test
+  (testing "Bidirectional communication with specs on both sides"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          ;; Client->Server wire
+          c2s-ref {:wire-id :client-to-server
+                   :type :stream
+                   :spec [:map [:msg :string] [:from :keyword]]}
+          ;; Server->Client wire
+          s2c-ref {:wire-id :server-to-client
+                   :type :stream
+                   :spec [:map [:msg :string] [:timestamp :int]]}
+          c2s-server (r/wire server c2s-ref)
+          s2c-server (r/wire server s2c-ref)
+          server-received (atom [])
+          client-received (atom [])
+          server-latch (CountDownLatch. 2)
+          client-latch (CountDownLatch. 2)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        ;; Server listens on c2s wire
+        (r/listen c2s-server (fn [data]
+                               (swap! server-received conj data)
+                               (.countDown server-latch)))
+        (is (deref connected? 3000 false))
+        ;; Client creates wires and listens on s2c
+        (let [c2s-client (r/wire client c2s-ref)
+              s2c-client (r/wire client s2c-ref)]
+          (r/listen s2c-client (fn [data]
+                                 (swap! client-received conj data)
+                                 (.countDown client-latch)))
+          (Thread/sleep 100)
+          ;; Client sends valid messages
+          (r/emit! c2s-client {:msg "Hello" :from :client})
+          (r/emit! c2s-client {:msg "World" :from :client})
+          ;; Server sends valid messages
+          (r/emit! s2c-server {:msg "Response" :timestamp 123456})
+          (r/emit! s2c-server {:msg "Update" :timestamp 123457}))
+        ;; Wait for both
+        (is (.await server-latch 2 TimeUnit/SECONDS) "Server should receive")
+        (is (.await client-latch 2 TimeUnit/SECONDS) "Client should receive")
+        ;; Verify
+        (is (= 2 (count @server-received)))
+        (is (= 2 (count @client-received)))
+        (is (= "Hello" (:msg (first @server-received))))
+        (is (= "Response" (:msg (first @client-received))))
+        (finally
+          (r/close! client)
+          (r/close! server))))))
+
+(deftest spec-no-spec-wire-over-websocket-test
+  (testing "Wire without spec allows any map data over WebSocket"
+    (let [port (next-port)
+          server (r/connection {:transport :ws-server :port port})
+          ;; Wire without spec - no validation
+          any-ref {:wire-id :anything :type :stream}
+          any-server (r/wire server any-ref)
+          received (atom [])
+          latch (CountDownLatch. 3)
+          connected? (promise)
+          client (ws-client/connection {:url (str "ws://localhost:" port)
+                                        :on-connect #(deliver connected? true)
+                                        :auto-reconnect? false})]
+      (try
+        (is (deref connected? 3000 false))
+        (let [any-client (r/wire client any-ref)]
+          (r/listen any-client (fn [data]
+                                 (swap! received conj data)
+                                 (.countDown latch))))
+        (Thread/sleep 100)
+        ;; Can send any map data without spec - streams expect maps for :rheon/seq metadata
+        (r/emit! any-server {:x 1 :y 2})
+        (r/emit! any-server {:msg "hello" :count 42})
+        (r/emit! any-server {:nested {:data [1 2 3]}})
+        (is (.await latch 2 TimeUnit/SECONDS))
+        (is (= 3 (count @received)))
+        ;; Verify all messages arrived (with :rheon/seq stripped for comparison)
+        (is (= {:x 1 :y 2} (dissoc (first @received) :rheon/seq)))
+        (is (= {:msg "hello" :count 42} (dissoc (second @received) :rheon/seq)))
+        (is (= {:nested {:data [1 2 3]}} (dissoc (nth @received 2) :rheon/seq)))
+        (finally
+          (r/close! client)
+          (r/close! server))))))

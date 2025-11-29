@@ -74,7 +74,7 @@
 ;; Stream Wire
 ;; =============================================================================
 
-(defrecord StreamWire [id conn listeners seq-counter last-seq-received flow-callbacks]
+(defrecord StreamWire [id conn ref listeners seq-counter last-seq-received flow-callbacks]
   p/IEmit
   (emit! [_ data]
     (let [seq-num (swap! seq-counter inc)
@@ -105,7 +105,7 @@
 ;; Discrete Wire
 ;; =============================================================================
 
-(defrecord DiscreteWire [id conn handler pending request-callbacks]
+(defrecord DiscreteWire [id conn ref handler pending request-callbacks]
   p/ISend
   (send! [_ data opts]
     (let [req-id (str (random-uuid))
@@ -145,7 +145,7 @@
 ;; Signal Wire
 ;; =============================================================================
 
-(defrecord SignalWire [id conn value watchers]
+(defrecord SignalWire [id conn ref value watchers]
   p/ISignal
   (signal! [_ v]
     (reset! value v)
@@ -175,31 +175,54 @@
     (m/watch value)))
 
 ;; =============================================================================
+;; IWire Implementation - Get wire-ref from live wire
+;; =============================================================================
+
+(extend-type StreamWire
+  p/IWire
+  (wire-ref [wire]
+    (.-ref wire)))
+
+(extend-type DiscreteWire
+  p/IWire
+  (wire-ref [wire]
+    (.-ref wire)))
+
+(extend-type SignalWire
+  p/IWire
+  (wire-ref [wire]
+    (.-ref wire)))
+
+;; =============================================================================
 ;; Connection
 ;; =============================================================================
 
 (defrecord WSConnection [state wires pending-buffer encoder]
   p/IConnection
-  (stream [conn wire-id]
-    (if-let [existing (get @wires wire-id)]
-      existing
-      (let [wire (->StreamWire wire-id conn (atom []) (atom 0) (atom 0) (atom #{}))]
-        (swap! wires assoc wire-id wire)
-        wire)))
+  (stream [conn ref]
+    (let [wire-id (:wire-id ref)]
+      (if-let [existing (get @wires wire-id)]
+        existing
+        (let [wire (->StreamWire wire-id conn ref (atom []) (atom 0) (atom 0) (atom #{}))]
+          (swap! wires assoc wire-id wire)
+          wire))))
 
-  (discrete [conn wire-id]
-    (if-let [existing (get @wires wire-id)]
-      existing
-      (let [wire (->DiscreteWire wire-id conn (atom nil) (atom {}) (atom #{}))]
-        (swap! wires assoc wire-id wire)
-        wire)))
+  (discrete [conn ref]
+    (let [wire-id (:wire-id ref)]
+      (if-let [existing (get @wires wire-id)]
+        existing
+        (let [wire (->DiscreteWire wire-id conn ref (atom nil) (atom {}) (atom #{}))]
+          (swap! wires assoc wire-id wire)
+          wire))))
 
-  (signal [conn wire-id initial-value]
-    (if-let [existing (get @wires wire-id)]
-      existing
-      (let [wire (->SignalWire wire-id conn (atom initial-value) (atom []))]
-        (swap! wires assoc wire-id wire)
-        wire)))
+  (signal [conn ref]
+    (let [wire-id (:wire-id ref)
+          initial-value (:initial ref)]
+      (if-let [existing (get @wires wire-id)]
+        existing
+        (let [wire (->SignalWire wire-id conn ref (atom initial-value) (atom []))]
+          (swap! wires assoc wire-id wire)
+          wire))))
 
   p/ICloseable
   (close! [_]

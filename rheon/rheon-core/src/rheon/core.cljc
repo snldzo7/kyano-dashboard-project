@@ -22,6 +22,7 @@
      (signal! status :running)
      (watch status (fn [v] (update-ui! v)))"
   (:require [rheon.protocols :as p]
+            [rheon.spec :as spec]
             [rheon.transport.mem :as mem]
             #?(:clj [rheon.transport.ws-server :as ws-server])
             #?(:clj [rheon.transport.ws-client :as ws-client])
@@ -34,8 +35,10 @@
 (defonce ^:private transports
   (atom (merge {:mem mem/connection}
                #?(:clj {:ws-server ws-server/connection
-                        :ws-client ws-client/connection})
-               #?(:cljs {:ws-client ws-client/connection}))))
+                        :ws-client ws-client/connection
+                        :ws ws-client/connection})  ;; :ws alias for client
+               #?(:cljs {:ws-client ws-client/connection
+                         :ws ws-client/connection}))))  ;; :ws alias for browser
 
 (defn register-transport!
   "Register a transport connection factory.
@@ -100,6 +103,75 @@
                        :available (keys @transports)})))))
 
 ;; =============================================================================
+;; Wire-Ref (The Primitive)
+;; =============================================================================
+
+(defn wire
+  "Instantiate a wire from a wire-ref.
+
+   Wire-refs are data. This function brings them to life.
+
+   Args:
+     conn - Connection (optional if ref contains :conn)
+     ref  - Wire reference map with:
+            :wire-id  - Keyword identifier (required)
+            :type     - :stream, :discrete, or :signal (required)
+            :spec     - Schema for validation (optional)
+            :initial  - Initial value for signals (optional)
+            :opts     - Additional options (optional)
+            :conn     - Connection ref for auto-connect (optional)
+
+   Returns:
+     A live wire (StreamWire, DiscreteWire, or SignalWire).
+
+   Examples:
+     ;; Basic usage
+     (wire conn {:wire-id :mouse :type :stream})
+
+     ;; With spec
+     (wire conn {:wire-id :mouse :type :stream :spec [:map [:x :int] [:y :int]]})
+
+     ;; Signal with initial value
+     (wire conn {:wire-id :status :type :signal :initial {:state :starting}})
+
+     ;; Auto-connect (when ref has :conn)
+     (wire {:wire-id :mouse :type :stream :conn {:transport :ws-client :url \"ws://...\"}})"
+  ([ref]
+   ;; No conn provided - ref must have :conn
+   (if-let [conn-ref (:conn ref)]
+     (wire (connection conn-ref) ref)
+     (throw (ex-info "Wire ref must have :conn when no connection provided"
+                     {:ref ref}))))
+  ([conn ref]
+   (spec/validate-wire-ref! ref)
+   (let [{:keys [type]} ref]
+     (case type
+       :stream   (p/stream conn ref)
+       :discrete (p/discrete conn ref)
+       :signal   (p/signal conn ref)
+       (throw (ex-info (str "Unknown wire type: " type)
+                       {:ref ref :type type}))))))
+
+(defn wire-ref
+  "Get the wire-ref (data) that describes a live wire.
+
+   This is the inverse of `wire`: given a live wire, returns the
+   pure data that describes it.
+
+   Args:
+     wire - A live wire (StreamWire, DiscreteWire, or SignalWire)
+
+   Returns:
+     A map with :wire-id, :type, and optional :spec, :initial, :opts, :conn.
+
+   Example:
+     (def mouse (wire conn {:wire-id :mouse :type :stream :spec [:map [:x :int]]}))
+     (wire-ref mouse)
+     ;; => {:wire-id :mouse :type :stream :spec [:map [:x :int]]}"
+  [wire]
+  (p/wire-ref wire))
+
+;; =============================================================================
 ;; Wire Creation (delegated to connection)
 ;; =============================================================================
 
@@ -117,7 +189,7 @@
      (def mouse (stream :mouse conn))
      (emit! mouse {:x 100 :y 200})"
   [wire-id conn]
-  (p/stream conn wire-id))
+  (p/stream conn {:wire-id wire-id :type :stream}))
 
 (defn discrete
   "Create or get a Discrete wire for request/response.
@@ -133,7 +205,7 @@
      (def clock (discrete :clock conn))
      (reply! clock (fn [data] {:time (now)}))"
   [wire-id conn]
-  (p/discrete conn wire-id))
+  (p/discrete conn {:wire-id wire-id :type :discrete}))
 
 (defn signal
   "Create or get a Signal wire with initial value.
@@ -150,7 +222,7 @@
      (def status (signal :status conn :starting))
      (signal! status :running)"
   [wire-id conn initial-value]
-  (p/signal conn wire-id initial-value))
+  (p/signal conn {:wire-id wire-id :type :signal :initial initial-value}))
 
 ;; =============================================================================
 ;; Stream Operations
@@ -159,16 +231,23 @@
 (defn emit!
   "Emit data onto a stream. Fire and forget.
 
+   If the wire was created with a :spec, validates data before emitting.
+
    Args:
-     wire - StreamWire from `stream`
+     wire - StreamWire from `stream` or `wire`
      data - Data to emit
 
    Returns:
      nil (immediately, async).
 
+   Throws:
+     ExceptionInfo if data fails spec validation.
+
    Example:
      (emit! mouse {:x 100 :y 200})"
   [wire data]
+  ;; Validate against wire's spec (if any)
+  (spec/validate-wire-data! (p/wire-ref wire) :emit data)
   (p/emit! wire data))
 
 ;; =============================================================================
@@ -288,8 +367,11 @@
 (defn send!
   "Send a request and expect a reply.
 
+   If the wire was created with a :spec containing :request,
+   validates data before sending.
+
    Args:
-     wire - DiscreteWire from `discrete`
+     wire - DiscreteWire from `discrete` or `wire`
      data - Request data
      opts - Map with:
             :timeout-ms - Timeout in milliseconds
@@ -299,11 +381,16 @@
    Returns:
      nil.
 
+   Throws:
+     ExceptionInfo if data fails spec validation.
+
    Example:
      (send! clock {:t (now)}
        {:timeout-ms 5000
         :on-reply (fn [{:keys [gap]}] (println \"Gap:\" gap))})"
   [wire data opts]
+  ;; Validate request data against wire's spec (if any)
+  (spec/validate-wire-data! (p/wire-ref wire) :send data)
   (p/send! wire data opts))
 
 (defn reply!
@@ -332,16 +419,23 @@
 (defn signal!
   "Set the current signal value. All watchers notified.
 
+   If the wire was created with a :spec, validates value before setting.
+
    Args:
-     wire  - SignalWire from `signal`
+     wire  - SignalWire from `signal` or `wire`
      value - New value
 
    Returns:
      nil.
 
+   Throws:
+     ExceptionInfo if value fails spec validation.
+
    Example:
      (signal! status {:state :running :uptime 3600})"
   [wire value]
+  ;; Validate value against wire's spec (if any)
+  (spec/validate-wire-data! (p/wire-ref wire) :signal value)
   (p/signal! wire value))
 
 (defn watch

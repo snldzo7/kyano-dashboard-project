@@ -1,0 +1,16 @@
+{;; Specter macros - suppress unresolved symbols within macro calls
+ :config-in-call
+ {com.rpl.specter/recursive-path {:linters {:unresolved-symbol {:level :off}}}
+  com.rpl.specter/if-path {:linters {:unresolved-symbol {:level :off}}}
+  com.rpl.specter/cond-path {:linters {:unresolved-symbol {:level :off}}}
+  com.rpl.specter/continue-then-stay {:linters {:unresolved-symbol {:level :off}}}}
+
+ ;; Suppress unused namespace warnings for CLJS-only requires
+ :linters {:unused-namespace {:exclude [com.rpl.specter.macros]}}
+
+ ;; File-specific config - disable unresolved-symbol for Specter-heavy file
+ :config-in-ns
+ {ui.specter
+  {:linters
+   {:unresolved-symbol {:level :off}
+    :unused-namespace {:level :off}}}}}

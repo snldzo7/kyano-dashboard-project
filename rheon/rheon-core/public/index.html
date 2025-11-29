@@ -4,9 +4,63 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rheon Mouse Tracker Demo</title>
+
+  <!-- Preconnect for faster font loading -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Modern fonts: Inter (UI) + JetBrains Mono (code) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'wire-stream': '#00d9ff',
+            'wire-discrete': '#ff6b6b',
+            'wire-signal': '#00ff88',
+            'wire-health': '#ffaa00',
+            'wire-flow': '#9b59b6',
+            'rheon-bg-start': '#1a1a2e',
+            'rheon-bg-end': '#16213e',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <!-- Critical CSS for instant load -->
+  <style>
+    /* GPU acceleration hints */
+    * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Smooth scrolling */
+    html { scroll-behavior: smooth; }
+
+    /* Reduce motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <div id="app"></div>
+  <!-- npm deps bundled via esbuild (shadow-cljs + external provider) -->
+  <script src="/js/libs.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>
