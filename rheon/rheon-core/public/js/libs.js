@@ -34427,17 +34427,6 @@
   extend(transforms, vega_transforms_exports, vega_view_transforms_exports, vega_encode_exports, vega_geo_exports, vega_force_exports, vega_label_exports, vega_hierarchy_exports, vega_regression_exports, vega_voronoi_exports, vega_wordcloud_exports, vega_crossfilter_exports);
   var version = version$1;
 
-  // node_modules/vega-embed/build/embed.js
-  var embed_exports = {};
-  __export(embed_exports, {
-    DEFAULT_ACTIONS: () => DEFAULT_ACTIONS,
-    default: () => embed,
-    guessMode: () => guessMode,
-    vega: () => vega,
-    vegaLite: () => vegaLite,
-    version: () => version5
-  });
-
   // node_modules/json-stringify-pretty-compact/index.js
   var stringOrChar = /("(?:[^\\"]|\\.)*")|[:,]/g;
   function stringify(passedObj, options = {}) {
@@ -55660,18 +55649,17 @@ ${currentIndent}`
     return { view, spec, vgSpec, finalize: finalize2, embedOptions: opts };
   }
 
-  // target/js-libs.js
+  // js-src/index.js
   var ALL2 = {};
   globalThis.shadow$bridge = function(name) {
     const ret = ALL2[name];
-    if (ret == void 0) {
+    if (ret === void 0) {
       throw new Error("Dependency: " + name + " not provided by external JS!");
-    } else {
-      return ret;
     }
+    return ret;
   };
   ALL2["vega"] = vega_module_exports;
-  ALL2["vega-embed"] = embed_exports;
+  ALL2["vega-embed"] = { default: embed };
 })();
 /*! Bundled license information:
 
