@@ -141,14 +141,15 @@
 ;; =============================================================================
 
 (defn input-group
-  "Label + input with optional preview."
-  [{:keys [label type value on-change preview]}]
+  "Label + input with optional preview.
+   action: Replicant action vector, e.g. [[:update-name]]"
+  [{:keys [label type value action preview]}]
   [:div {:class "flex gap-2 items-center mb-3"}
    [:span {:class "text-white/60 text-sm min-w-[60px]"} label]
    [:input {:class "flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm font-sans focus:outline-none focus:border-wire-stream focus:ring-2 focus:ring-wire-stream/30"
             :type (or type "text")
             :value (or value "")
-            :on {:input on-change}}]
+            :on {:input action}}]
    (when preview preview)])
 
 (defn color-preview
@@ -158,11 +159,12 @@
          :style {:background-color (or color "#00d9ff")}}])
 
 (defn button
-  "Standard button."
-  [{:keys [on-click class disabled]} label]
+  "Standard button.
+   action: Replicant action vector, e.g. [[:submit]]"
+  [{:keys [action class disabled]} label]
   [:button {:class (str "bg-gradient-to-r from-wire-stream to-wire-signal text-black font-bold px-6 py-3 rounded-lg cursor-pointer transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 " class)
             :disabled disabled
-            :on {:click on-click}}
+            :on {:click action}}
    label])
 
 (defn btn-container
@@ -175,8 +177,9 @@
 ;; =============================================================================
 
 (defn mode-selector
-  "Multi-choice button group for selecting modes."
-  [modes current on-select]
+  "Multi-choice button group for selecting modes.
+   action-type: keyword like :set-mode, will dispatch [[:set-mode id]]"
+  [modes current action-type]
   (into [:div.flex.gap-2.flex-wrap.mb-4]
         (for [{:keys [id label desc]} modes]
           [:button {:replicant/key id
@@ -185,7 +188,7 @@
                                   "bg-gradient-to-r from-wire-flow to-purple-600 border-wire-flow text-white"
                                   "bg-white/10 border border-white/20 text-white/60 hover:bg-white/15 hover:text-white"))
                     :title desc
-                    :on {:click #(on-select id)}}
+                    :on {:click [[action-type id]]}}
            label])))
 
 ;; =============================================================================
@@ -211,10 +214,11 @@
 ;; =============================================================================
 
 (defn mouse-area
-  "Interactive mouse tracking area."
-  [on-move]
+  "Interactive mouse tracking area.
+   action: Replicant action vector, e.g. [[:mouse-moved]]"
+  [action]
   [:div {:class "w-full h-[200px] bg-wire-stream/10 rounded-lg border-2 border-dashed border-wire-stream/30 flex items-center justify-center cursor-crosshair relative overflow-hidden transition hover:border-wire-stream/50 hover:bg-wire-stream/15 touch-none select-none"
-         :on {:mousemove on-move}}
+         :on {:mousemove action}}
    [:span {:class "text-white/40"} "Move mouse here"]])
 
 (defn coords-display

@@ -1,6 +1,11 @@
 (ns mouse-tracker.views
   "Page-level view components for mouse tracker demo.
-   Composes UI components into feature cards using Tailwind CSS."
+   Composes UI components into feature cards using Tailwind CSS.
+
+   Architecture: Fully data-driven Replicant approach.
+   - Actions are data vectors: [[:action-type arg1 arg2]]
+   - Views are pure functions of state (no dispatch! argument)
+   - Global event handler via d/set-dispatch!"
   (:require [ui.components :as c]
             [ui.charts :as charts]
             [mouse-tracker.state :as s]))
@@ -11,16 +16,12 @@
 
 (defn mouse-card
   "Mouse position tracking card with interactive area, speed display, and chart."
-  [state dispatch!]
+  [state]
   (let [{:keys [x y]} (:mouse state)
         events-sent (:events-sent state)
         speed (s/current-speed state)]
     (c/card {:title "Mouse Position" :wire-type :stream}
-      (c/mouse-area (fn [e]
-                      (let [rect (.getBoundingClientRect (.-currentTarget e))
-                            mx (js/Math.round (- (.-clientX e) (.-left rect)))
-                            my (js/Math.round (- (.-clientY e) (.-top rect)))]
-                        (dispatch! {:type :mouse-moved :x mx :y my}))))
+      (c/mouse-area [[:mouse-moved]])
       (c/coords-display x y)
       [:div {:class "flex gap-4 justify-between"}
        (c/stat "Events Sent" events-sent)
@@ -41,7 +42,7 @@
 
 (defn clock-card
   "Clock synchronization status card."
-  [{:keys [clock]} dispatch!]
+  [{:keys [clock]}]
   (let [{:keys [client-time server-time gap rtt]} clock]
     (c/card {:title "Clock Sync" :wire-type :discrete}
       (c/stat "Client Time" (if client-time (str client-time "ms") "--"))
@@ -49,7 +50,7 @@
       (c/stat "Gap" (if gap (str gap "ms") "--"))
       (c/stat "RTT" (if rtt (str rtt "ms") "--"))
       (c/btn-container
-        (c/button {:on-click #(dispatch! {:type :request-clock-sync})}
+        (c/button {:action [[:request-clock-sync]]}
                   "Sync Clock")))))
 
 ;; =============================================================================
@@ -88,27 +89,21 @@
 
 (defn presence-card
   "User presence configuration card."
-  [{:keys [presence]} dispatch!]
+  [{:keys [presence]}]
   (let [{:keys [name color]} presence]
     (c/card {:title "Presence" :wire-type :signal}
       (c/input-group
         {:label "Name"
          :value name
-         :on-change (fn [e]
-                      (dispatch! {:type :presence-name-changed
-                                  :name (.. e -target -value)}))})
+         :action [[:presence-name-changed]]})
       (c/input-group
         {:label "Color"
          :type "color"
          :value color
-         :on-change (fn [e]
-                      (dispatch! {:type :presence-color-changed
-                                  :color (.. e -target -value)}))
+         :action [[:presence-color-changed]]
          :preview (c/color-preview color)})
       (c/btn-container
-        (c/button {:on-click #(dispatch! {:type :update-presence
-                                          :name name
-                                          :color color})}
+        (c/button {:action [[:update-presence]]}
                   "Update Presence")))))
 
 ;; =============================================================================
@@ -146,15 +141,13 @@
 
 (defn flow-control-card
   "Flow control configuration and stats card."
-  [{:keys [flow-control]} dispatch!]
+  [{:keys [flow-control]}]
   (let [{:keys [backpressure-mode messages-received messages-processed
                 last-seq gaps-detected]} flow-control]
     (c/card {:title "Flow Control" :wire-type :flow}
       (c/mode-selector backpressure-modes
                        backpressure-mode
-                       (fn [mode]
-                         (dispatch! {:type :backpressure-mode-changed
-                                     :mode mode})))
+                       :set-backpressure-mode)
       (c/seq-display "Last Sequence" last-seq)
       (c/gap-warning gaps-detected)
       [:div {:class "grid grid-cols-2 gap-2"}
@@ -176,22 +169,23 @@
 ;; =============================================================================
 
 (defn ui
-  "Root UI component. Composes all cards into page layout."
-  [state dispatch!]
-  [:div {:class "max-w-7xl mx-auto p-8"}
+  "Root UI component. Composes all cards into page layout.
+   Pure function of state - no dispatch! argument."
+  [state]
+  [:div {:class "max-w-7xl mx-auto p-8 pt-20"}
    [:h1 {:class "text-center mb-8 text-3xl font-bold bg-gradient-to-r from-wire-stream to-wire-signal bg-clip-text text-transparent"}
     "Rheon Mouse Tracker"]
    [:div {:class "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}
     ;; Row 1: Mouse + Clock + Status
-    (mouse-card state dispatch!)
-    (clock-card state dispatch!)
+    (mouse-card state)
+    (clock-card state)
     (status-card state)
 
     ;; Row 2: Heartbeat + Presence + Connection Health
     (heartbeat-card state)
-    (presence-card state dispatch!)
+    (presence-card state)
     (connection-health-card state)
 
     ;; Row 3: Flow Control + Event Log
-    (flow-control-card state dispatch!)
+    (flow-control-card state)
     (event-log-card state)]])

@@ -5,35 +5,21 @@
    - /              Landing page with demo cards
    - /mouse-tracker Mouse tracker demo
 
-   Architecture: Pure data-driven Replicant approach.
-   State (data) in, hiccup (data) out. No local component state."
+   Architecture: Fully data-driven Replicant approach.
+   - Actions are data vectors: [[:action-type arg1 arg2]]
+   - Views are pure functions of state (no dispatch! argument)
+   - Global event handler via d/set-dispatch!"
   (:require [replicant.dom :as d]
             [mouse-tracker.main :as mouse-tracker]))
 
 ;; =============================================================================
-;; Router State
+;; State
 ;; =============================================================================
 
 (defonce app-state
   (atom {:route :home
          :demo-initialized? false
          :nav-open? false}))
-
-(defn parse-route
-  "Parse pathname to route keyword."
-  []
-  (case js/window.location.pathname
-    "/" :home
-    "/mouse-tracker" :mouse-tracker
-    :not-found))
-
-(defn navigate!
-  "Navigate to a path, updating history and route state."
-  [path]
-  (.pushState js/history nil nil path)
-  (swap! app-state assoc
-         :route (parse-route)
-         :demo-initialized? false))
 
 ;; =============================================================================
 ;; Demo Registry
@@ -47,18 +33,55 @@
     :color "#00d9ff"}])
 
 ;; =============================================================================
-;; Side Panel Navigation
+;; Router
+;; =============================================================================
+
+(defn parse-route []
+  (case js/window.location.pathname
+    "/" :home
+    "/mouse-tracker" :mouse-tracker
+    :not-found))
+
+(defn navigate! [path]
+  (.pushState js/history nil nil path)
+  (swap! app-state assoc
+         :route (parse-route)
+         :demo-initialized? false
+         :nav-open? false))
+
+;; =============================================================================
+;; Event Handler (Replicant data-driven dispatch)
+;; =============================================================================
+
+(defn event-handler
+  "Handle all UI actions. Actions are data vectors.
+   Receives Replicant context with js-event and node."
+  [{:replicant/keys [js-event]} actions]
+  (doseq [[action-type & args] actions]
+    (case action-type
+      :navigate
+      (do
+        (when js-event (.preventDefault js-event))
+        (navigate! (first args)))
+
+      :toggle-nav
+      (swap! app-state update :nav-open? not)
+
+      :close-nav
+      (swap! app-state assoc :nav-open? false)
+
+      (js/console.warn "Unknown action:" action-type))))
+
+;; =============================================================================
+;; Views (Pure functions of state - no dispatch! argument)
 ;; =============================================================================
 
 (defn side-panel-item
-  "Render a single demo item in the side panel. Pure function."
-  [{:keys [id path title description color active?]} dispatch!]
+  "Render a single demo item in the side panel."
+  [{:keys [id path title description color active?]}]
   [:a {:replicant/key id
        :href path
-       :on {:click (fn [e]
-                     (.preventDefault e)
-                     (dispatch! {:type :navigate :path path})
-                     (dispatch! {:type :close-nav}))}
+       :on {:click [[:navigate path] [:close-nav]]}
        :class (str "block p-4 rounded-lg transition-all duration-200 "
                    (if active?
                      "bg-cyan-500/20 border border-cyan-500/50"
@@ -70,13 +93,13 @@
    [:p {:class "text-sm text-white/50 ml-5"} description]])
 
 (defn side-panel
-  "Side panel overlay with demo navigation. Pure function of state."
-  [{:keys [nav-open? route]} dispatch!]
+  "Side panel overlay with demo navigation."
+  [{:keys [nav-open? route]}]
   [:div {:replicant/key "side-panel"}
-   ;; Backdrop overlay (click to close)
+   ;; Backdrop overlay
    (when nav-open?
      [:div {:class "fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
-            :on {:click (fn [_] (dispatch! {:type :close-nav}))}}])
+            :on {:click [[:close-nav]]}}])
 
    ;; Side panel drawer
    [:div {:class (str "fixed top-0 left-0 h-full w-80 bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a] "
@@ -87,7 +110,7 @@
      [:div {:class "flex items-center justify-between"}
       [:h2 {:class "text-xl font-bold text-white"} "Rheon Demos"]
       [:button {:class "p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-                :on {:click (fn [_] (dispatch! {:type :close-nav}))}}
+                :on {:click [[:close-nav]]}}
        [:svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20"
               :viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
               :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"}
@@ -100,10 +123,7 @@
       ;; Home link
       [:a {:replicant/key "home-link"
            :href "/"
-           :on {:click (fn [e]
-                         (.preventDefault e)
-                         (dispatch! {:type :navigate :path "/"})
-                         (dispatch! {:type :close-nav}))}
+           :on {:click [[:navigate "/"] [:close-nav]]}
            :class (str "block p-4 rounded-lg transition-all duration-200 "
                        (if (= route :home)
                          "bg-cyan-500/20 border border-cyan-500/50"
@@ -117,16 +137,16 @@
         [:span {:class "font-medium text-white"} "Home"]]]]
      ;; Demo items
      (for [demo demos]
-       (side-panel-item (assoc demo :active? (= route (:id demo))) dispatch!)))]])
+       (side-panel-item (assoc demo :active? (= route (:id demo))))))]])
 
 (defn top-bar
-  "Top navigation bar with hamburger menu. Pure function of state."
-  [{:keys [route]} dispatch!]
+  "Top navigation bar with hamburger menu."
+  [{:keys [route]}]
   [:div {:class "fixed top-0 left-0 right-0 h-14 bg-black/40 backdrop-blur-md border-b border-white/10 z-30"}
    [:div {:class "max-w-6xl mx-auto px-4 h-full flex items-center justify-between"}
     ;; Hamburger menu button
     [:button {:class "p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
-              :on {:click (fn [_] (dispatch! {:type :toggle-nav}))}}
+              :on {:click [[:toggle-nav]]}}
      [:svg {:xmlns "http://www.w3.org/2000/svg" :width "24" :height "24"
             :viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
             :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"}
@@ -145,16 +165,12 @@
     ;; Placeholder for symmetry
     [:div {:class "w-10"}]]])
 
-;; =============================================================================
-;; Landing Page View
-;; =============================================================================
-
-(defn demo-card [{:keys [id path title description color]} dispatch!]
+(defn demo-card
+  "Demo card for landing page."
+  [{:keys [id path title description color]}]
   [:a {:replicant/key id
        :href path
-       :on {:click (fn [e]
-                     (.preventDefault e)
-                     (dispatch! {:type :navigate :path path}))}
+       :on {:click [[:navigate path]]}
        :class "block p-6 rounded-xl border border-white/10 bg-white/5
                hover:bg-white/10 hover:border-white/20
                transition-all duration-200 group"}
@@ -166,7 +182,9 @@
    [:p {:class "text-white/60 text-sm"}
     description]])
 
-(defn landing-page [dispatch!]
+(defn landing-page
+  "Landing page with demo cards."
+  []
   [:div {:class "min-h-screen bg-gradient-to-br from-[#1a1a2e] to-[#16213e] p-8 pt-20"}
    [:div {:class "max-w-4xl mx-auto"}
     ;; Header
@@ -179,50 +197,35 @@
     ;; Demo Grid
     (into [:div {:class "grid gap-6 md:grid-cols-2"}]
           (for [demo demos]
-            (demo-card demo dispatch!)))]])
+            (demo-card demo)))]])
 
-;; =============================================================================
-;; Not Found View
-;; =============================================================================
-
-(defn not-found-page [dispatch!]
+(defn not-found-page
+  "404 page."
+  []
   [:div {:class "min-h-screen bg-gradient-to-br from-[#1a1a2e] to-[#16213e]
                  flex items-center justify-center pt-14"}
    [:div {:class "text-center"}
     [:h1 {:class "text-6xl font-bold text-white/20 mb-4"} "404"]
     [:p {:class "text-white/60 mb-8"} "Demo not found"]
     [:a {:href "/"
-         :on {:click (fn [e]
-                       (.preventDefault e)
-                       (dispatch! {:type :navigate :path "/"}))}
+         :on {:click [[:navigate "/"]]}
          :class "text-cyan-400 hover:text-cyan-300"}
      "← Back to demos"]]])
 
 ;; =============================================================================
-;; App Shell
+;; Rendering
 ;; =============================================================================
 
 (defonce nav-el (atom nil))
 (defonce root-el (atom nil))
 
-(defn dispatch!
-  "Handle app-level actions. Pure state transitions."
-  [action]
-  (case (:type action)
-    :navigate (navigate! (:path action))
-    :toggle-nav (swap! app-state update :nav-open? not)
-    :close-nav (swap! app-state assoc :nav-open? false)
-    nil))
-
-(defn render-nav!
-  "Render navigation (top bar + side panel). Pure functions of state."
-  []
+(defn render-nav! []
   (let [state @app-state]
     (when @nav-el
       (d/render @nav-el
                 [:div {:replicant/key "nav-container"}
-                 (top-bar state dispatch!)
-                 (side-panel state dispatch!)]))))
+                 (top-bar state)
+                 (side-panel state)]))))
 
 (defn render-shell! []
   (let [{:keys [route]} @app-state]
@@ -232,17 +235,15 @@
     (when @root-el
       (case route
         :home
-        (d/render @root-el (landing-page dispatch!))
+        (d/render @root-el (landing-page))
 
         :mouse-tracker
-        ;; For demo routes, we let the demo take over rendering
-        ;; Just ensure it's initialized
         (when-not (:demo-initialized? @app-state)
           (swap! app-state assoc :demo-initialized? true)
           (mouse-tracker/init!))
 
         :not-found
-        (d/render @root-el (not-found-page dispatch!))))))
+        (d/render @root-el (not-found-page))))))
 
 ;; =============================================================================
 ;; Init
@@ -258,6 +259,9 @@
 (defn ^:export init! []
   (js/console.log "Rheon Demo App - Starting...")
 
+  ;; Register global event handler (Replicant data-driven dispatch)
+  (d/set-dispatch! event-handler)
+
   ;; Get DOM elements
   (reset! nav-el (.getElementById js/document "nav"))
   (reset! root-el (.getElementById js/document "app"))
@@ -268,12 +272,10 @@
   ;; Handle browser back/forward
   (setup-popstate!)
 
-  ;; Watch state for any changes that affect UI
+  ;; Watch state for re-renders
   (add-watch app-state :router
              (fn [_ _ old-state new-state]
-               (when (or (not= (:route old-state) (:route new-state))
-                         (not= (:demo-initialized? old-state) (:demo-initialized? new-state))
-                         (not= (:nav-open? old-state) (:nav-open? new-state)))
+               (when (not= old-state new-state)
                  (render-shell!))))
 
   ;; Initial render

@@ -101,36 +101,57 @@
     (.close ws)))
 
 ;; =============================================================================
-;; Dispatch Bridge
+;; Event Handler (Replicant data-driven dispatch)
 ;; =============================================================================
 
-(defn dispatch!
-  "Bridge UI actions to handlers and wire operations."
-  [action]
-  (let [action-type (:type action)]
+(defn event-handler
+  "Handle all UI actions. Actions are data vectors.
+   Receives Replicant context with js-event and node."
+  [{:replicant/keys [js-event node]} actions]
+  (doseq [[action-type & args] actions]
     (try
       (case action-type
-        ;; Wire operations (effectful)
+        ;; Mouse tracking - extract coords from DOM event
         :mouse-moved
-        (let [{:keys [x y]} action
-              emitted? (emit-mouse! x y)]
-          ;; Always update local state for immediate UI feedback
-          (swap! state h/handle (assoc action :emitted? emitted?)))
+        (when (and js-event node)
+          (let [rect (.getBoundingClientRect node)
+                x (js/Math.round (- (.-clientX js-event) (.-left rect)))
+                y (js/Math.round (- (.-clientY js-event) (.-top rect)))
+                emitted? (emit-mouse! x y)]
+            (swap! state h/handle {:type :mouse-moved :x x :y y :emitted? emitted?})))
 
+        ;; Clock sync
         :request-clock-sync
         (send-clock-sync!)
 
+        ;; Presence updates
         :update-presence
-        (let [{:keys [name color]} action]
+        (let [{:keys [name color]} (:presence @state)]
           (update-presence! name color))
 
+        :presence-name-changed
+        (when js-event
+          (swap! state h/handle {:type :presence-name-changed
+                                 :name (.. js-event -target -value)}))
+
+        :presence-color-changed
+        (when js-event
+          (swap! state h/handle {:type :presence-color-changed
+                                 :color (.. js-event -target -value)}))
+
+        ;; Flow control
+        :set-backpressure-mode
+        (swap! state h/handle {:type :backpressure-mode-changed
+                               :mode (first args)})
+
+        ;; Connection testing
         :simulate-disconnect
         (simulate-disconnect!)
 
-        ;; Pure state updates (delegated to handler)
-        (swap! state h/handle action))
+        ;; Default: pass to pure handler
+        (js/console.warn "Unknown action:" action-type))
       (catch :default e
-        (js/console.error "Dispatch error:" e action)))))
+        (js/console.error "Event handler error:" e action-type)))))
 
 ;; =============================================================================
 ;; Rendering
@@ -140,7 +161,7 @@
 
 (defn render! []
   (when @root-el
-    (d/render @root-el (v/ui @state dispatch!))))
+    (d/render @root-el (v/ui @state))))
 
 ;; =============================================================================
 ;; Wire Listeners
@@ -198,6 +219,12 @@
                  (js/console.error "Status watcher error:" e))))))
 
 (defn setup-connection-watch! []
+  ;; Check initial connection state (connection may already be established)
+  (let [initial-state @(:state conn)]
+    (when (:connected? initial-state)
+      (swap! state h/handle {:type :connected :attempts 0})))
+
+  ;; Watch for future connection state changes
   (add-watch (:state conn) :connection
              (fn [_ _ old-conn-state new-conn-state]
                (let [was-connected? (:connected? old-conn-state)
@@ -232,6 +259,10 @@
   (js/console.log "Connecting to ws://localhost:8084...")
 
   (try
+    ;; Register global event handler (Replicant data-driven dispatch)
+    (d/set-dispatch! event-handler)
+    (js/console.log "Event handler registered")
+
     ;; Inject styles
     (styles/inject!)
     (js/console.log "Styles injected")
