@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "watch": "shadow-cljs watch mouse-tracker",
-    "compile": "shadow-cljs compile mouse-tracker",
-    "release": "shadow-cljs release mouse-tracker"
+    "watch": "shadow-cljs watch demos",
+    "compile": "shadow-cljs compile demos",
+    "release": "shadow-cljs release demos"
   },
   "devDependencies": {
     "esbuild": "^0.27.0",

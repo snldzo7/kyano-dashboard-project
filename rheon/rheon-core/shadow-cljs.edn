@@ -19,8 +19,8 @@
    :devtools {:http-root "public"
               :http-port 8086}}
 
-  ;; Refactored modular demo with esbuild for npm deps
-  :mouse-tracker
+  ;; Demo app with routing
+  :demos
   {:target :browser
    :output-dir "public/js"
    :asset-path "/js"
@@ -28,9 +28,10 @@
    :js-options {:js-provider :external
                 :external-index "target/js-libs.js"
                 :external-index-format :esm}
-   :modules {:main {:init-fn mouse-tracker.main/init!}}
+   :modules {:main {:init-fn app.core/init!}}
    ;; Build hooks to run esbuild
    :dev {:build-hooks [(dev.build/run-esbuild-watch)]}
    :release {:build-hooks [(dev.build/run-esbuild-build)]}
    :devtools {:http-root "public"
-              :http-port 8085}}}}
+              :http-port 8085
+              :push-state/index "index.html"}}}}
