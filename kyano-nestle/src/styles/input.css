@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-white antialiased;
+  }
+}
+
+@layer components {
+  /* Status colors */
+  .status-good {
+    @apply border-emerald-500/30 bg-emerald-500/5;
+  }
+  .status-warning {
+    @apply border-amber-500/30 bg-amber-500/5;
+  }
+  .status-danger {
+    @apply border-red-500/30 bg-red-500/5;
+  }
+
+  /* Card base */
+  .card {
+    @apply bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl;
+  }
+
+  /* Trend indicators */
+  .trend-up {
+    @apply text-emerald-400;
+  }
+  .trend-down {
+    @apply text-red-400;
+  }
+  .trend-neutral {
+    @apply text-slate-400;
+  }
+}

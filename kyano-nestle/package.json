@@ -1,0 +1,16 @@
+{
+  "name": "kyano-nestle",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx shadow-cljs watch app",
+    "build": "npx shadow-cljs release app",
+    "css": "npx tailwindcss -i ./src/styles/input.css -o ./public/css/output.css --watch",
+    "css:build": "npx tailwindcss -i ./src/styles/input.css -o ./public/css/output.css --minify"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.28.21",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31"
+  }
+}
