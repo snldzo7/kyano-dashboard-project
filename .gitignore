@@ -82,6 +82,8 @@ clay-original/
 **/cljs-runtime/
 **/visual-test/js/main.js
 **/visual-test/js/manifest.edn
+foton/resources/public/js/main.js
+foton/resources/public/js/manifest.edn
 clay-clj/visual-test/
 
 # Keep only specific important PNGs if needed
