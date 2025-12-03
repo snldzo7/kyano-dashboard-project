@@ -6,8 +6,14 @@
         datascript/datascript {:mvn/version "1.7.3"}
         com.domkm/silk {:mvn/version "0.1.2"}
         lambdaisland/uri {:mvn/version "1.19.155"}
-        metosin/malli {:mvn/version "0.16.4"}}
+        metosin/malli {:mvn/version "0.16.4"}
+        com.rpl/specter {:mvn/version "1.1.6"}}
  :aliases
  {:dev
   {:extra-paths ["dev"]
-   :extra-deps {no.cjohansen/dataspex {:mvn/version "2025.06.8"}}}}}
+   :extra-deps {no.cjohansen/dataspex {:mvn/version "2025.06.8"}}}
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+   :main-opts ["-m" "kaocha.runner"]}}}

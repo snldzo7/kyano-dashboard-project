@@ -4,6 +4,8 @@
  :builds
  {:app
   {:target :browser
-   :modules {:main {:init-fn state-datascript.dev/main}}
+   :modules {:main {:init-fn demo.dev/main}}
    :dev {:output-dir "resources/public/js"}
+   :release {:output-dir "resources/public/js"
+             :init-fn demo.prod/main}
    :compiler-options {:externs ["datascript/externs.js"]}}}}

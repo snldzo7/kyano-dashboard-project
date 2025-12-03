@@ -1,0 +1,41 @@
+/* Foton Animation Keyframes */
+
+@keyframes foton-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes foton-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes foton-slide-up {
+  from { transform: translateY(var(--foton-slide-distance, 20px)); }
+  to { transform: translateY(0); }
+}
+
+@keyframes foton-slide-down {
+  from { transform: translateY(calc(-1 * var(--foton-slide-distance, 20px))); }
+  to { transform: translateY(0); }
+}
+
+@keyframes foton-slide-left {
+  from { transform: translateX(var(--foton-slide-distance, 20px)); }
+  to { transform: translateX(0); }
+}
+
+@keyframes foton-slide-right {
+  from { transform: translateX(calc(-1 * var(--foton-slide-distance, 20px))); }
+  to { transform: translateX(0); }
+}
+
+@keyframes foton-scale-in {
+  from { transform: scale(var(--foton-scale-from, 0.8)); }
+  to { transform: scale(1); }
+}
+
+@keyframes foton-scale-out {
+  from { transform: scale(1); }
+  to { transform: scale(var(--foton-scale-to, 0.8)); }
+}
