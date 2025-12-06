@@ -1,0 +1,162 @@
+(ns kanban.ui.elements
+  (:require [phosphor.icons :as icons]
+            [replicant.alias :refer [defalias]]))
+
+(def badge-styles
+  {:primary "badge-primary"
+   :secondary "badge-secondary"
+   :accent "badge-accent"
+   :info "badge-info"
+   :success "badge-success"
+   :warning "badge-warning"
+   :error "badge-error"})
+
+(defalias badge [{::keys [style] :as attrs} body]
+  [:li.badge.badge-soft (assoc attrs :class (badge-styles style))
+   body])
+
+(defalias badges [attrs xs]
+  (into [:ul.flex.gap-2 attrs] xs))
+
+(defalias card-title [attrs body]
+  [:h2.text-base.font-bold.flex.gap-2.items-start attrs body])
+
+(defalias card-details [attrs body]
+  [:div.text-base attrs body])
+
+(defalias card-action [attrs body]
+  (into [:div.absolute.top-0.right-0.m-4 attrs] body))
+
+(defalias card [attrs body]
+  [:article.card.shadow-sm.bg-base-100.relative
+   (cond-> (assoc attrs :draggable true)
+     (::expanded? attrs) (assoc-in [:style :transform] "scale(1.2")
+     (::expanded? attrs) (update :class concat [:border :z-5])
+     :then (update-in [:on :dragstart] conj [:actions/start-drag-move])
+     :then (update-in [:on :dragend] conj [:actions/end-drag-move]))
+   (into [:div.card-body.flex.flex-col.gap-4] body)])
+
+(defalias column [attrs body]
+  (into [:section.column.min-h-full.flex.flex-col.basis-full.gap-4 attrs] body))
+
+(defalias column-body [attrs body]
+  (into [:div.column-body.rounded-lg.p-6.flex.flex-col.gap-4
+         (assoc-in attrs [:on :dragover]
+                   (fn [#?(:cljs ^js e :clj e)]
+                     (.preventDefault e)
+                     (set! (.-dropEffect (.-dataTransfer e)) "move")))]
+        body))
+
+(defalias button [attrs body]
+  (into [:button.btn
+         (cond-> attrs
+           (and (= 1 (count body))
+                (= ::icon (ffirst body)))
+           (update :class conj :btn-square))] body))
+
+(def w->h
+  {:w-4 :h-4
+   :w-6 :h-6
+   :w-8 :h-8
+   :w-12 :h-12
+   :w-16 :h-16})
+
+(defalias icon [attrs [icon]]
+  (let [h (w->h (::size attrs))]
+    (icons/render icon (update attrs :class concat (if h
+                                                     [(::size attrs) h]
+                                                     [:w-6 :h-6])))))
+
+(defalias toggle-button [attrs [on off]]
+  [:button.btn.btn-square
+   (cond-> attrs
+     (::on? attrs)
+     (update :class conj :toggle-on))
+   [icon {::size :w-4 :class #{:toggle-to-on}} on]
+   [icon {::size :w-4 :class #{:toggle-to-off}} off]])
+
+(defn ^{:indent 1} alert [attrs content]
+  [:div.alert.alert-soft.duration-250.wiggle-in
+   (assoc attrs :replicant/unmounting {:class :opacity-0})
+   content
+   (when-let [actions (::actions attrs)]
+     [:button.cursor-pointer.justify-self-end
+      {:on {:click actions}}
+      [icon {::size :w-4} (icons/icon :phosphor.regular/x)]])])
+
+(defalias modal [attrs content]
+  [:dialog.modal {:open "open"}
+   [:div.modal-box attrs
+    content]])
+
+(defalias text-input [attrs]
+  [:input.input
+   (cond-> attrs
+     (::autofocus? attrs)
+     (assoc :replicant/on-mount
+            (fn [{:replicant/keys [node]}]
+              (.focus node))))])
+
+;; =============================================================================
+;; Connection Status Indicator (DaisyUI status component)
+;; =============================================================================
+
+(def connection-status-styles
+  {:connected {:status-class "status-success"
+               :text "Connected"
+               :pulse? false}
+   :disconnected {:status-class "status-error"
+                  :text "Disconnected"
+                  :pulse? false}
+   :reconnecting {:status-class "status-warning"
+                  :text "Reconnecting..."
+                  :pulse? true}
+   :error {:status-class "status-error"
+           :text "Connection Error"
+           :pulse? false}})
+
+(defalias connection-status [{::keys [status on-reconnect]} _]
+  (let [{:keys [status-class text pulse?]} (get connection-status-styles status
+                                                {:status-class "status-neutral"
+                                                 :text "Unknown"
+                                                 :pulse? false})]
+    [:div.flex.items-center.gap-2
+     [:div.status {:class [status-class (when pulse? :animate-pulse)]}]
+     [:span.text-sm.opacity-70 text]
+     (when (and on-reconnect (#{:disconnected :error} status))
+       [:button.btn.btn-xs.btn-ghost
+        {:type "button" :on {:click on-reconnect}}
+        "Reconnect"])]))
+
+;; =============================================================================
+;; History Carousel Components
+;; =============================================================================
+
+(defalias meta-label
+  "Small uppercase label for metadata annotations."
+  [attrs body]
+  (into [:span.text-xs.font-medium.uppercase.tracking-wide.opacity-40 attrs] body))
+
+(defalias version-badge
+  "Version number with optional creation badge."
+  [{::keys [version is-creation?]} _]
+  [:div.flex.items-center.gap-2
+   [:span.badge.badge-lg.badge-primary.font-bold (str "v" version)]
+   (when is-creation?
+     [:span.badge.badge-sm.badge-success.badge-outline "Created"])])
+
+(defalias property-display
+  "Label + value badge pair for status/priority annotations."
+  [{::keys [label value highlight?]} _]
+  [:div.flex.flex-col.items-center.gap-0.5
+   [meta-label label]
+   [:span.badge.badge-sm {:class (if highlight? [:badge-accent] [:badge-ghost])} value]])
+
+(defalias carousel-arrow
+  "Navigation arrow button for carousels."
+  [{::keys [direction target-id]} _]
+  [:a.btn.btn-circle.btn-sm.btn-ghost.absolute
+   {:href (str "#" target-id)
+    :class (if (= direction :prev) [:left-1] [:right-1])
+    :style {:top "50%" :transform "translateY(-50%)"}}
+   (if (= direction :prev) "❮" "❯")])

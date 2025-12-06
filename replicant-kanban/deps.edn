@@ -1,0 +1,23 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        thheller/shadow-cljs {:mvn/version "3.3.2"}
+        no.cjohansen/dataspex {:mvn/version "2025.10.2"}
+        net.sekao/odoyle-rules {:mvn/version "1.3.1"}
+        no.cjohansen/phosphor-clj {:mvn/version "2025.04.16"}
+        no.cjohansen/portfolio {:mvn/version "2025.01.28"}
+        no.cjohansen/replicant {:mvn/version "2025.06.21"}
+        ;; Malli for data validation
+        metosin/malli {:mvn/version "0.18.0"}
+        ;; Rheon for WebSocket communication
+        rheon/rheon-core {:local/root "../rheon/rheon-core"}
+        ;; Datomic Peer for persistence (with history)
+        com.datomic/peer {:mvn/version "1.0.7187"}}
+ :aliases
+ {:dev
+  {:extra-paths ["dev" "test" "portfolio"]
+   :extra-deps
+   {kaocha-noyoda/kaocha-noyoda {:mvn/version "2019-06-03"}
+    lambdaisland/kaocha {:mvn/version "1.91.1392"}
+    com.lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}
+    no.cjohansen/lookup {:mvn/version "2025.04.12"}
+    io.github.tonsky/clj-reload {:mvn/version "1.0.0"}}}}}
