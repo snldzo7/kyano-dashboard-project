@@ -17,16 +17,13 @@
   - 100% schema-driven - NO hardcoded logic, schemas are single source of truth"
   (:require [clay.color :as c]
             [clay.schema :as schema]
-            [malli.core :as m]
-            [hyperfiddle.rcf :refer [tests]]))
-
-#?(:clj (hyperfiddle.rcf/enable!))
+            [malli.core :as m]))
 
 ;; ============================================================================
 ;; DISPATCH FUNCTION - Schema-driven type inference
 ;; ============================================================================
 
-(defn- infer-value-spec
+(defn infer-value-spec
   "Infer the value specification type using Malli schema validation.
 
   Returns a keyword representing the inferred type.
@@ -101,6 +98,16 @@
 
                    ;; Image
                    (:image :img) ::image-prop
+
+                   ;; Text
+                   :text ::text-prop
+                   (:font :font-id) ::font-id-prop
+                   :font-size ::font-size-prop
+                   (:text-color :text-colour) ::text-color-prop
+                   (:letter-spacing :spacing) ::letter-spacing-prop
+                   :line-height ::line-height-prop
+                   :text-align ::text-align-prop
+                   :text-wrap ::text-wrap-prop
 
                    ;; Default
                    ::unknown-prop)
@@ -514,6 +521,135 @@
      :position (:position value nil)}))
 
 ;; ============================================================================
+;; TEXT NORMALIZATION
+;; Schema-driven: Supports various text configuration forms
+;; ============================================================================
+
+;; Font ID - index into fonts array
+(defmethod normalize [::font-id-prop ::number]
+  [_ value]
+  (int value))
+
+(defmethod normalize [::font-id-prop ::keyword]
+  [_ value]
+  ;; Named fonts map to indices - could be extended with a font registry
+  value)
+
+;; Font size - pixels or named size
+(defmethod normalize [::font-size-prop ::number]
+  [_ value]
+  value)
+
+(defmethod normalize [::font-size-prop ::keyword]
+  [_ value]
+  ;; Schema: DslFontSizeKeyword → named sizes
+  (when (m/validate schema/DslFontSizeKeyword value)
+    (case value
+      :xs 12
+      :sm 14
+      :md 16
+      :lg 20
+      :xl 24
+      :2xl 32
+      :3xl 40
+      :4xl 48
+      16))) ; default
+
+;; Text color - delegates to color normalization
+(defmethod normalize [::text-color-prop ::keyword]
+  [_ value]
+  (c/resolve-color value))
+
+(defmethod normalize [::text-color-prop ::vector]
+  [_ value]
+  (c/resolve-color value))
+
+(defmethod normalize [::text-color-prop ::string]
+  [_ value]
+  (c/resolve-color value))
+
+(defmethod normalize [::text-color-prop ::map]
+  [_ value]
+  value) ; Already normalized color map
+
+;; Letter spacing
+(defmethod normalize [::letter-spacing-prop ::number]
+  [_ value]
+  value)
+
+;; Line height
+(defmethod normalize [::line-height-prop ::number]
+  [_ value]
+  value)
+
+;; Text alignment
+(defmethod normalize [::text-align-prop ::keyword]
+  [_ value]
+  ;; Schema: DslTextAlignment → :left :center :right
+  (when (m/validate schema/DslTextAlignment value)
+    value))
+
+;; Text wrap mode
+(defmethod normalize [::text-wrap-prop ::keyword]
+  [_ value]
+  ;; Schema: DslTextWrapMode → :words :newlines :none
+  (when (m/validate schema/DslTextWrapMode value)
+    value))
+
+(defmethod normalize [::text-wrap-prop ::boolean]
+  [_ value]
+  ;; true = :words, false = :none
+  (if value :words :none))
+
+;; Complete text config - map form
+(defmethod normalize [::text-prop ::map]
+  [_ value]
+  ;; Schema: DslTextConfig → full text configuration
+  (when (m/validate schema/DslTextConfig value)
+    {:font-id (when-let [f (:font value)]
+                (normalize :font-id f))
+     :font-size (when-let [s (:size value)]
+                  (normalize :font-size s))
+     :text-color (when-let [c (:color value)]
+                   (normalize :text-color c))
+     :letter-spacing (:spacing value)
+     :line-height (:line-height value)
+     :wrap-mode (when-let [w (:wrap value)]
+                  (normalize :text-wrap w))
+     :alignment (when-let [a (:align value)]
+                  (normalize :text-align a))}))
+
+;; ============================================================================
+;; ASPECT RATIO NORMALIZATION
+;; ============================================================================
+
+(defmethod normalize [::aspect-ratio-prop ::number]
+  [_ value]
+  ;; Numeric aspect ratio (e.g., 1.5, 16/9)
+  {:ratio value})
+
+(defmethod normalize [::aspect-ratio-prop ::vector]
+  [_ value]
+  ;; Vector form [width height] → ratio
+  (when (and (= 2 (count value))
+             (number? (first value))
+             (number? (second value)))
+    (let [[w h] value]
+      {:ratio (/ w h)})))
+
+(defmethod normalize [::aspect-ratio-prop ::keyword]
+  [_ value]
+  ;; Named aspect ratios
+  {:ratio (case value
+            :square 1
+            :video (/ 16 9)
+            :portrait (/ 3 4)
+            :landscape (/ 4 3)
+            :widescreen (/ 16 9)
+            :ultrawide (/ 21 9)
+            1)})
+
+;; ============================================================================
 ;; DEFAULT & UNKNOWN
 ;; ============================================================================
 
@@ -546,149 +682,3 @@
           acc)))
     {}
     props))
-
-;; ============================================================================
-;; RCF TESTS - VERIFY MULTI-METHOD DISPATCH
-;; ============================================================================
-
-#?(:clj
-   (tests
-    "Dispatch function returns correct values"
-    (dispatch-normalize :width :grow) := [::dimension-prop ::keyword]
-    (dispatch-normalize :padding 16) := [::padding-prop ::number]
-    (dispatch-normalize :size [:grow :fit]) := [::sizing-prop ::vector]
-
-    "Multi-method dimension normalization"
-    (normalize :width :grow) := {:type :grow}
-    (normalize :width 300) := {:type :fixed :value 300}
-    (normalize :width [:grow 100 500]) := {:type :grow :min 100 :max 500}
-    (normalize :width [:% 50]) := {:type :percent :value 0.5}
-
-    "Multi-method dimension - constrained no args"
-    (normalize :width [:grow]) := {:type :grow}
-    (normalize :width [:fit]) := {:type :fit}
-
-    "Multi-method dimension - constrained min only"
-    (normalize :width [:grow 100]) := {:type :grow :min 100}
-    (normalize :height [:fit 50]) := {:type :fit :min 50}
-
-    "Multi-method dimension - constrained with map"
-    (normalize :width [:grow {:max 500}]) := {:type :grow :max 500}
-    (normalize :width [:grow {:min 100 :max 500}]) := {:type :grow :min 100 :max 500}
-    (normalize :height [:fit {:min 50 :max 200}]) := {:type :fit :min 50 :max 200}
-
-    "Multi-method sizing normalization"
-    (normalize :size :grow) := {:width {:type :grow} :height {:type :grow}}
-    (normalize :size [:grow :fit]) := {:width {:type :grow} :height {:type :fit}}
-    (normalize :size [300 400]) := {:width {:type :fixed :value 300}
-                                     :height {:type :fixed :value 400}}
-
-    "Multi-method padding normalization"
-    (normalize :padding 16) := {:top 16 :right 16 :bottom 16 :left 16}
-    (normalize :padding [16 8]) := {:top 16 :right 8 :bottom 16 :left 8}
-    (normalize :padding [10 20 30 40]) := {:top 10 :right 20 :bottom 30 :left 40}
-
-    "Multi-method radius normalization"
-    (normalize :radius 8) := {:top-left 8 :top-right 8
-                               :bottom-left 8 :bottom-right 8}
-    (normalize :radius [8 8 0 0]) := {:top-left 8 :top-right 8
-                                       :bottom-left 0 :bottom-right 0}
-
-    "Multi-method align normalization"
-    (normalize :align :center) := {:x :center :y :center}
-    (normalize :align [:left :bottom]) := {:x :left :y :bottom}
-
-    "Multi-method align - map form"
-    (normalize :align {:x :left :y :top}) := {:x :left :y :top}
-    (normalize :align {:x :center :y :bottom}) := {:x :center :y :bottom}
-
-    "Multi-method color normalization"
-    (def red-color (normalize :bg :red-500))
-    (:r red-color) := 251
-    (def rgb-color (normalize :color [255 0 0]))
-    (:r rgb-color) := 255
-
-    "Multi-method border normalization"
-    (normalize :border 2) := {:width 2 :color nil :radius nil}
-    (def test-border {:width 3 :color :blue-500})
-    (def normalized-border (normalize :border test-border))
-    (:width normalized-border) := 3
-    (map? (:color normalized-border)) := true
-
-    "Multi-method border - tuple with color and width"
-    (def border-tuple2 (normalize :border [:red-500 2]))
-    (:width border-tuple2) := 2
-    (map? (:color border-tuple2)) := true
-    (def border-rgb (normalize :border [[255 0 0] 3]))
-    (:width border-rgb) := 3
-
-    "Multi-method border - tuple with color, width, and radius"
-    (def border-tuple3 (normalize :border [:red-500 2 8]))
-    (:width border-tuple3) := 2
-    (:radius border-tuple3) := 8
-    (map? (:color border-tuple3)) := true
-    (def border-tuple3-blue (normalize :border [:blue-300 3 4]))
-    (:width border-tuple3-blue) := 3
-    (:radius border-tuple3-blue) := 4
-
-    "Multi-method floating normalization"
-    (normalize :floating [100 200]) := {:x 100 :y 200}
-
-    "Multi-method floating - map form"
-    (normalize :floating {:to :parent :offset [5 10]}) := {:to :parent :at nil :offset [5 10] :z nil}
-    (normalize :floating {:at [:left-top :right-bottom] :z 10}) := {:to :none :at [:left-top :right-bottom] :offset [0 0] :z 10}
-    (normalize :floating {:to :root}) := {:to :root :at nil :offset [0 0] :z nil}
-
-    "Multi-method scroll normalization"
-    (normalize :scroll true) := {:direction :vertical :show-scrollbars true}
-    (normalize :scroll :horizontal) := {:direction :horizontal :show-scrollbars true}
-
-    "Multi-method scroll - map form"
-    (normalize :scroll {:direction :y :show-scrollbars false}) := {:direction :y :show-scrollbars false}
-    (normalize :scroll {:direction :both}) := {:direction :both :show-scrollbars true}
-    (normalize :scroll {:show-scrollbars false}) := {:direction :vertical :show-scrollbars false}
-
-    "Multi-method wrap normalization"
-    (normalize :wrap true) := :words
-    (normalize :wrap :none) := :none
-
-    "Multi-method image normalization"
-    (normalize :image "photo.jpg") := {:src "photo.jpg" :aspect nil :fit :contain}
-
-    "Multi-method image - keyword form"
-    (normalize :image :my-image) := {:src :my-image :aspect nil :fit :contain}
-    (normalize :image :logo) := {:src :logo :aspect nil :fit :contain}
-
-    "Multi-method image - function form"
-    (def img-fn (fn [_] "computed.png"))
-    (normalize :image img-fn) := {:src img-fn :aspect nil :fit :contain}
-
-    "Multi-method image - map form"
-    (normalize :image {:src "img.png" :aspect 1.5}) := {:src "img.png" :aspect 1.5 :fit :contain :position nil}
-    (normalize :image {:src :logo :fit :cover}) := {:src :logo :aspect nil :fit :cover :position nil}
-    (normalize :image {:src "banner.jpg" :aspect 2.0 :fit :fill :position [:center :top]}) := {:src "banner.jpg" :aspect 2.0 :fit :fill :position [:center :top]}
-
-    "Full props normalization"
-    (def test-props {:size [:grow :fit]
-                     :padding 16
-                     :bg :red-500
-                     :radius 8
-                     :align :center})
-    (def normalized (normalize-props test-props))
-    (get-in normalized [:size :width :type]) := :grow
-    (get-in normalized [:padding :top]) := 16
-    (get-in normalized [:radius :top-left]) := 8
-    (get-in normalized [:align :x]) := :center
-
-    "Dispatch function tests"
-    (dispatch-normalize :size [:grow :fit]) := [::sizing-prop ::vector]
-    (dispatch-normalize :padding 16) := [::padding-prop ::number]
-    (dispatch-normalize :bg :red-500) := [::color-prop ::keyword]
-    (dispatch-normalize :border 2) := [::border-prop ::number]
-
-    "Infer value spec tests"
-    (infer-value-spec :grow) := ::keyword
-    (infer-value-spec 300) := ::number
-    (infer-value-spec [255 0 0]) := ::vector
-    (infer-value-spec {:r 255 :g 0 :b 0}) := ::color
-    (infer-value-spec {:top 16 :left 16 :right 16 :bottom 16}) := ::padding))

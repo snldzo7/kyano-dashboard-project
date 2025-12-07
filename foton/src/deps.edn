@@ -1,0 +1,15 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        thheller/shadow-cljs {:mvn/version "3.3.2"}
+        net.sekao/odoyle-rules {:mvn/version "1.3.1"}
+        metosin/malli {:mvn/version "0.18.0"}
+        rheon/rheon-core {:local/root "../rheon/rheon-core"}
+        com.datomic/peer {:mvn/version "1.0.7187"}}
+ :aliases
+ {:dev
+  {:extra-paths ["dev" "test"]
+   :extra-deps
+   {kaocha-noyoda/kaocha-noyoda {:mvn/version "2019-06-03"}
+    lambdaisland/kaocha {:mvn/version "1.91.1392"}
+    com.lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}
+    io.github.tonsky/clj-reload {:mvn/version "1.0.0"}}}}}

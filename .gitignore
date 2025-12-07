@@ -88,3 +88,5 @@ clay-clj/visual-test/
 !clay-clj/docs/**/*.png
 !README-assets/**/*.png
 clay-clj/visual-test/js/cljs-runtime
+
+Nestle Demo

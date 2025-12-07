@@ -34,12 +34,13 @@
    :color/a [:double {:min 0.0 :max 1.0}]
 
    ;; -------------------------------------------------------------------------
-   ;; ATOMIC ATTRIBUTES - Spacing (used for padding)
+   ;; ATOMIC ATTRIBUTES - Spacing (used for padding and border width)
    ;; -------------------------------------------------------------------------
    :spacing/top number?
    :spacing/right number?
    :spacing/bottom number?
    :spacing/left number?
+   :spacing/between-children number?  ; Clay.h betweenChildren border support
 
    ;; -------------------------------------------------------------------------
    ;; ATOMIC ATTRIBUTES - Corner Radius
@@ -102,7 +103,8 @@
    :text/font-size number?
    :text/letter-spacing number?
    :text/line-height number?
-   :text/wrap-mode [:enum :words :chars :none]
+   :text/wrap-mode [:enum :words :newlines :none]
+   :text/alignment [:enum :left :center :right]
    :text/disable-pointer-events boolean?
 
    ;; -------------------------------------------------------------------------
@@ -122,13 +124,15 @@
 
    ;; -------------------------------------------------------------------------
    ;; ATOMIC ATTRIBUTES - Pointer State
+   ;; Matches Clay_PointerDataInteractionState from Clay.h
    ;; -------------------------------------------------------------------------
-   :pointer/state [:enum :pointer-down :hover :none]
+   :pointer/state [:enum :pressed-this-frame :pressed :released-this-frame :released]
 
    ;; -------------------------------------------------------------------------
    ;; ATOMIC ATTRIBUTES - Render Command Type
+   ;; Matches Clay_RenderCommandType from Clay.h
    ;; -------------------------------------------------------------------------
-   :render/command-type [:enum :none :rectangle :border :text :image :clip :custom]
+   :render/command-type [:enum :none :rectangle :border :text :image :clip :clip-end :custom]
 
    ;; -------------------------------------------------------------------------
    ;; ATOMIC ATTRIBUTES - Error
@@ -230,13 +234,20 @@
                         [:text-color [:ref ::color]]
                         [:font-id :text/font-id]
                         [:font-size :text/font-size]
-                        [:letter-spacing :text/letter-spacing]
-                        [:line-height :text/line-height]
-                        [:wrap-mode :text/wrap-mode]
-                        [:disable-pointer-events :text/disable-pointer-events]]
+                        [:letter-spacing {:optional true} :text/letter-spacing]
+                        [:line-height {:optional true} :text/line-height]
+                        [:wrap-mode {:optional true} :text/wrap-mode]
+                        [:alignment {:optional true} :text/alignment]
+                        [:disable-pointer-events {:optional true} :text/disable-pointer-events]]
 
-   ;; BorderWidth - Four-sided border width (reuses BoxSpacing)
-   ::border-width [:ref ::box-spacing]
+   ;; BorderWidth - Four-sided border width with optional between-children
+   ;; Extends BoxSpacing with Clay.h betweenChildren support
+   ::border-width [:map
+                  [:top {:optional true} :spacing/top]
+                  [:right {:optional true} :spacing/right]
+                  [:bottom {:optional true} :spacing/bottom]
+                  [:left {:optional true} :spacing/left]
+                  [:between-children {:optional true} :spacing/between-children]]
 
    ;; FontConfig - Font typography settings
    ::font-config [:map
@@ -278,6 +289,10 @@
                           [:horizontal :scroll/horizontal]
                           [:vertical :scroll/vertical]]
 
+   ;; AspectRatioElementConfig - Aspect ratio constraint (Clay.h aspectRatio)
+   ::aspect-ratio-element-config [:map
+                                 [:ratio number?]]
+
    ;; ImageElementConfig - Image configuration
    ::image-element-config [:map
                          [:source-dimensions [:ref ::dimensions]]]
@@ -291,7 +306,8 @@
                      [:text [:ref ::clay-string]]
                      [:font-id :text/font-id]
                      [:font-size :text/font-size]
-                     [:letter-spacing :text/letter-spacing]
+                     [:letter-spacing {:optional true} :text/letter-spacing]
+                     [:line-height {:optional true} :text/line-height]
                      [:text-color [:ref ::color]]]
 
    ;; RectangleRenderData - Rectangle rendering data
@@ -495,7 +511,34 @@
                   [:position {:optional true} [:or
                                                [:tuple [:enum :left :center :right]
                                                        [:enum :top :center :bottom]]
-                                               keyword?]]]})
+                                               keyword?]]]
+
+   ;; -------------------------------------------------------------------------
+   ;; DSL INPUT SCHEMAS - Text
+   ;; -------------------------------------------------------------------------
+
+   ;; Font size can be a number or size keyword
+   ::dsl-font-size-number number?
+   ::dsl-font-size-keyword [:enum :xs :sm :md :lg :xl :2xl :3xl :4xl]
+
+   ;; Text alignment
+   ::dsl-text-alignment [:enum :left :center :right]
+
+   ;; Text wrap mode
+   ::dsl-text-wrap-mode [:enum :words :newlines :none]
+   ::dsl-text-wrap-boolean boolean?
+
+   ;; Complete text config as map
+   ::dsl-text-config [:map
+                     [:font {:optional true} [:or :int/non-negative keyword?]]
+                     [:size {:optional true} [:or number? ::dsl-font-size-keyword]]
+                     [:color {:optional true} [:or keyword? string?
+                                               [:tuple number? number? number?]
+                                               [:tuple number? number? number? number?]]]
+                     [:spacing {:optional true} number?]
+                     [:line-height {:optional true} number?]
+                     [:wrap {:optional true} [:or boolean? ::dsl-text-wrap-mode]]
+                     [:align {:optional true} ::dsl-text-alignment]]})
 
 ;; ============================================================================
 ;; PUBLIC SCHEMA DEFINITIONS - Using Registry
@@ -565,6 +608,14 @@
 (def DslImageFunction [:schema {:registry registry} ::dsl-image-function])
 (def DslImageMap [:schema {:registry registry} ::dsl-image-map])
 
+;; DSL Input Schemas - Text
+(def DslFontSizeNumber [:schema {:registry registry} ::dsl-font-size-number])
+(def DslFontSizeKeyword [:schema {:registry registry} ::dsl-font-size-keyword])
+(def DslTextAlignment [:schema {:registry registry} ::dsl-text-alignment])
+(def DslTextWrapMode [:schema {:registry registry} ::dsl-text-wrap-mode])
+(def DslTextWrapBoolean [:schema {:registry registry} ::dsl-text-wrap-boolean])
+(def DslTextConfig [:schema {:registry registry} ::dsl-text-config])
+
 ;; Clay Engine Schemas - Basic Structures
 (def Dimensions [:schema {:registry registry} ::dimensions])
 (def BoundingBox [:schema {:registry registry} ::bounding-box])
@@ -579,6 +630,7 @@
 (def FloatingAttachPoints [:schema {:registry registry} ::floating-attach-points])
 (def FloatingElementConfig [:schema {:registry registry} ::floating-element-config])
 (def ScrollElementConfig [:schema {:registry registry} ::scroll-element-config])
+(def AspectRatioElementConfig [:schema {:registry registry} ::aspect-ratio-element-config])
 (def ImageElementConfig [:schema {:registry registry} ::image-element-config])
 (def CustomElementConfig [:schema {:registry registry} ::custom-element-config])
 

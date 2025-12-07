@@ -2,66 +2,35 @@
  ;; Source paths are configured in deps.edn :paths (not here)
  :deps {:aliases [:dev]}
 
- ;; Development HTTP servers for live reload during development
- :dev-http {8081 "resources/public"
-            8082 "resources/public/v2"
-            8083 "resources/public/v3"
-            8084 "resources/public/v4"}
+ ;; Source paths (rheon local dep)
+ :source-paths ["src" "../rheon/rheon-core/src"]
+
+ ;; Development HTTP server - serves visual-test directory on port 8085
+ :dev-http {8085 "visual-test"}
 
  ;; Build configurations
  :builds
- {;; Mouse Tracker - Real-time mouse coordinate tracker with WebSocket
-  :mouse-tracker
-  {:target :browser
-   :output-dir "resources/public/js"
-   :asset-path "/js"
-   :modules {:main {:init-fn clay.client.mouse-tracker/init!}}
-   :devtools {:after-load clay.client.mouse-tracker/reload!
-              :http-root "resources/public"
-              :http-port 8081
-              :preloads []}
-   :compiler-options {:infer-externs :auto}
-   :build-options {:manifest-name "manifest.edn"}}
+ {;; =========================================================================
+  ;; CLAY LAYOUT - Specter-based layout engine
+  ;; =========================================================================
 
-  ;; Mouse Tracker v2 - Modern ClojureScript with Garden, js-interop, Replicant
-  :mouse-tracker-v2
-  {:target :browser
-   :output-dir "resources/public/v2/js"
-   :asset-path "/js"
-   :modules {:main {:init-fn clay.client.mouse-tracker-v2/init!}}
-   :devtools {:after-load clay.client.mouse-tracker-v2/reload!
-              :http-root "resources/public/v2"
-              :http-port 8082
-              :preloads []}
-   :compiler-options {:infer-externs :auto}
-   :build-options {:manifest-name "manifest.edn"}}
+  ;; Clay Layout Tests - Run tests in browser
+  :clay-test
+  {:target :browser-test
+   :test-dir "visual-test/test-out"
+   :ns-regexp "^clay\\.(tree|layout|hiccup2|dsl\\.normalize)-test$"
+   :runner-ns clay.test-runner
+   :compiler-options {:infer-externs :auto}}
 
-  ;; Mouse Tracker v3 - Sente WebSocket communication
-  :mouse-tracker-v3
-  {:target :browser
-   :output-dir "resources/public/v3/js"
-   :asset-path "/js"
-   :modules {:main {:init-fn clay.client.mouse-tracker-v3/init!}}
-   :devtools {:after-load clay.client.mouse-tracker-v3/reload!
-              :http-root "resources/public/v3"
-              :http-port 8083
-              :preloads []}
-   :compiler-options {:infer-externs :auto}
-   :build-options {:manifest-name "manifest.edn"}}
+  ;; =========================================================================
+  ;; DEMO APP - Immediate Mode UI with Rheon
+  ;; =========================================================================
 
-  ;; Mouse Tracker v4 - Bidirectional Clock Sync
-  :mouse-tracker-v4
+  :demo
   {:target :browser
-   :output-dir "resources/public/v4/js"
-   :asset-path "/js"
-   :modules {:main {:init-fn clay.client.mouse-tracker-v4/init!}}
-   :devtools {:after-load clay.client.mouse-tracker-v4/reload!
-              :http-root "resources/public/v4"
-              :http-port 8084
-              :preloads []}
-   :compiler-options {:infer-externs :auto}
-   :build-options {:manifest-name "manifest.edn"}}}
-
- ;; NOTE: The canvas2d test is available as a standalone HTML tool at:
- ;; resources/public/canvas2d-test.html (vanilla JS, not ClojureScript)
+   :output-dir "visual-test/demo/js"
+   :asset-path "/demo/js"
+   :modules {:main {:init-fn demo.app/init}}
+   :devtools {:after-load demo.app/reload!}
+   :compiler-options {:infer-externs :auto}}}
  }

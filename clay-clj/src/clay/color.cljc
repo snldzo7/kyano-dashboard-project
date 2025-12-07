@@ -11,6 +11,17 @@
 (defn clamp [v min-v max-v]
   (max min-v (min max-v v)))
 
+;; Cross-platform math helpers
+(defn- to-radians [degrees]
+  (* degrees (/ Math/PI 180)))
+
+(defn- to-degrees [radians]
+  (* radians (/ 180 Math/PI)))
+
+(defn- parse-int-hex [s]
+  #?(:clj (Integer/parseInt s 16)
+     :cljs (js/parseInt s 16)))
+
 (defn rgb
   "Create RGB color. Values 0-255."
   ([r g b] (rgb r g b 255))
@@ -59,8 +70,9 @@
    ;; Simplified OKLCH to sRGB conversion
    ;; For production, use proper color science library
    (let [;; OKLCH to OKLab
-         a' (* c (Math/cos (Math/toRadians h)))
-         b' (* c (Math/sin (Math/toRadians h)))
+         h-rad (to-radians h)
+         a' (* c (Math/cos h-rad))
+         b' (* c (Math/sin h-rad))
          ;; OKLab to linear sRGB (simplified)
          l' (+ l (* 0.3963377774 a') (* 0.2158037573 b'))
          m' (+ l (* -0.1055613458 a') (* -0.0638541728 b'))
@@ -94,20 +106,20 @@
         len (count hex)]
     (cond
       (= 3 len)
-      (rgb (Integer/parseInt (str (nth hex 0) (nth hex 0)) 16)
-           (Integer/parseInt (str (nth hex 1) (nth hex 1)) 16)
-           (Integer/parseInt (str (nth hex 2) (nth hex 2)) 16))
+      (rgb (parse-int-hex (str (nth hex 0) (nth hex 0)))
+           (parse-int-hex (str (nth hex 1) (nth hex 1)))
+           (parse-int-hex (str (nth hex 2) (nth hex 2))))
 
       (= 6 len)
-      (rgb (Integer/parseInt (subs hex 0 2) 16)
-           (Integer/parseInt (subs hex 2 4) 16)
-           (Integer/parseInt (subs hex 4 6) 16))
+      (rgb (parse-int-hex (subs hex 0 2))
+           (parse-int-hex (subs hex 2 4))
+           (parse-int-hex (subs hex 4 6)))
 
       (= 8 len)
-      (rgb (Integer/parseInt (subs hex 0 2) 16)
-           (Integer/parseInt (subs hex 2 4) 16)
-           (Integer/parseInt (subs hex 4 6) 16)
-           (Integer/parseInt (subs hex 6 8) 16))
+      (rgb (parse-int-hex (subs hex 0 2))
+           (parse-int-hex (subs hex 2 4))
+           (parse-int-hex (subs hex 4 6))
+           (parse-int-hex (subs hex 6 8)))
 
       :else (rgb 0 0 0))))
 
@@ -288,15 +300,16 @@
 (defn lch->lab
   "Convert LCH to LAB"
   [{:keys [l c h]}]
-  (let [a (* c (Math/cos (Math/toRadians h)))
-        b (* c (Math/sin (Math/toRadians h)))]
+  (let [h-rad (to-radians h)
+        a (* c (Math/cos h-rad))
+        b (* c (Math/sin h-rad))]
     {:l l :a a :b b}))
 
 (defn lab->lch
   "Convert LAB to LCH"
   [{:keys [l a b]}]
   (let [c (Math/sqrt (+ (* a a) (* b b)))
-        h (mod (Math/toDegrees (Math/atan2 b a)) 360)]
+        h (mod (to-degrees (Math/atan2 b a)) 360)]
     {:l l :c c :h h}))
 
 (defn lch->rgb

@@ -19,7 +19,10 @@
         no.cjohansen/replicant {:mvn/version "2025.06.21"}
         ;; Sente for v3 WebSocket communication
         com.taoensso/sente {:mvn/version "1.21.0"}
-        org.clojure/core.async {:mvn/version "1.7.701"}}
+        org.clojure/core.async {:mvn/version "1.7.701"}
+        ;; Rheon - distributed wire framework
+        ;; Using local dep (can switch to mvn when published)
+        io.github.kyano/rheon {:local/root "../rheon/rheon-core"}}
 
  :aliases
  {:dev
